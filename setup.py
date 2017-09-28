@@ -1,7 +1,5 @@
+"""Setup file for handling packaging and distribution."""
 from setuptools import setup
-
-
-packages = ['ipdbugger']
 
 __version__ = "1.1.1"
 
@@ -12,7 +10,7 @@ setup(
     install_requires=['ipdb',
                       'colorama',
                       'termcolor'],
-    packages=packages,
+    packages=['ipdbugger'],
     package_data={},
     zip_safe=False
 )

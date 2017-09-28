@@ -14,17 +14,18 @@ Usage notes (while in ipdb):
 * Call 'raise' to let the exception raise.
 * Call 'retry' to redo the previous line.
 """
+# pylint: disable=misplaced-bare-raise,protected-access,bare-except
+# pylint: disable=missing-docstring,too-many-locals,too-many-branches
 import re
 import ast
 import sys
 import types
 import inspect
-import colorama
 import functools
 import traceback
 
+import colorama
 from termcolor import colored
-from ipdb import __main__ as ipdb
 from IPython.core.debugger import Pdb
 
 # Enable color printing on screen.
@@ -83,8 +84,10 @@ def start_debugging():
 
     # Get the frame with the error.
     test_frame = sys._getframe(-1).f_back
-    ipdb.wrap_sys_excepthook()
-    IPDBugger(ipdb.def_colors).set_trace(test_frame)
+
+    from ipdb.__main__ import wrap_sys_excepthook, def_colors
+    wrap_sys_excepthook()
+    IPDBugger(def_colors).set_trace(test_frame)
 
 
 class ErrorsCatchTransformer(ast.NodeTransformer):
@@ -94,31 +97,30 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
         IGNORED_EXCEPTION (str): name of the base class of the exceptions
              to catch, or None to catch all.
     """
-    def __init__(self, ignore_exceptions=[], catch_exception=None):
+    def __init__(self, ignore_exceptions=(), catch_exception=None):
         raise_cmd = ast.Raise()
-        start_debug_cmd = ast.Expr(value=ast.Call(
-                                        ast.Name("start_debugging", ast.Load()),
-                                        [], [], None, None))
+        start_debug_cmd = ast.Expr(
+            value=ast.Call(ast.Name("start_debugging", ast.Load()), [], [],
+                           None, None))
 
         catch_exception_node = None
         if catch_exception is not None:
             catch_exception_node = ast.Name(catch_exception.__name__,
                                             ast.Load())
 
-        self.exception_handlers = [ast.ExceptHandler(
-                                                type=catch_exception_node,
-                                                name=None,
-                                                body=[start_debug_cmd])]
+        self.exception_handlers = [ast.ExceptHandler(type=catch_exception_node,
+                                                     name=None,
+                                                     body=[start_debug_cmd])]
 
         for exception_class in ignore_exceptions:
             ignore_exception_node = ast.Name(exception_class.__name__,
                                              ast.Load())
 
-            self.exception_handlers.insert(0,
-                                           ast.ExceptHandler(
-                                                type=ignore_exception_node,
-                                                name=None,
-                                                body=[raise_cmd]))
+            self.exception_handlers.insert(
+                0,
+                ast.ExceptHandler(type=ignore_exception_node,
+                                  name=None,
+                                  body=[raise_cmd]))
 
     def generic_visit(self, node):
         """Surround node statement with a try/except block to catch errors.
@@ -132,8 +134,7 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
         super(ErrorsCatchTransformer, self).generic_visit(node)
 
         if (isinstance(node, ast.stmt) and
-            not isinstance(node, ast.FunctionDef)):
-
+                not isinstance(node, ast.FunctionDef)):
             new_node = ast.TryExcept(
                 orelse=[],
                 body=[node],
@@ -144,7 +145,7 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
         return node
 
 
-def debug(victim, ignore_exceptions=[], catch_exception=None):
+def debug(victim, ignore_exceptions=(), catch_exception=None):
     """A decorator function to catch exceptions and enter debug mode.
 
     Args:
@@ -165,8 +166,8 @@ def debug(victim, ignore_exceptions=[], catch_exception=None):
             return victim
 
         _transformer = ErrorsCatchTransformer(
-                                        ignore_exceptions=ignore_exceptions,
-                                        catch_exception=catch_exception)
+            ignore_exceptions=ignore_exceptions,
+            catch_exception=catch_exception)
 
         try:
             # Try to get the source code of the wrapped object.
@@ -192,8 +193,8 @@ def debug(victim, ignore_exceptions=[], catch_exception=None):
             ast.increment_lineno(old_code_tree, start_num - 1)
             tree = _transformer.visit(old_code_tree)
 
-            import_debug_cmd = ast.ImportFrom(__name__,
-                                      [ast.alias("start_debugging", None)], 0)
+            import_debug_cmd = ast.ImportFrom(
+                __name__, [ast.alias("start_debugging", None)], 0)
 
             # Add import to the debugger as first command
             tree.body[0].body.insert(0, import_debug_cmd)
@@ -203,16 +204,15 @@ def debug(victim, ignore_exceptions=[], catch_exception=None):
                 import_exception_cmd = ast.ImportFrom(
                     catch_exception.__module__,
                     [ast.alias(catch_exception.__name__, None)], 0)
-                
+
                 tree.body[0].body.insert(1, import_exception_cmd)
-                
+
             for exception_class in ignore_exceptions:
                 import_exception_cmd = ast.ImportFrom(
                     exception_class.__module__,
                     [ast.alias(exception_class.__name__, None)], 0)
 
                 tree.body[0].body.insert(1, import_exception_cmd)
-
 
             # Delete the debugger decorator of the function
             del tree.body[0].decorator_list[:]

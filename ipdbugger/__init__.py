@@ -24,7 +24,6 @@ import functools
 import traceback
 
 from termcolor import colored
-from ipdb import __main__ as ipdb
 from IPython.core.debugger import Pdb
 
 # Enable color printing on screen.
@@ -83,8 +82,10 @@ def start_debugging():
 
     # Get the frame with the error.
     test_frame = sys._getframe(-1).f_back
-    ipdb.wrap_sys_excepthook()
-    IPDBugger(ipdb.def_colors).set_trace(test_frame)
+
+    from ipdb.__main__ import wrap_sys_excepthook, def_colors
+    wrap_sys_excepthook()
+    IPDBugger(def_colors).set_trace(test_frame)
 
 
 class ErrorsCatchTransformer(ast.NodeTransformer):
@@ -203,9 +204,9 @@ def debug(victim, ignore_exceptions=[], catch_exception=None):
                 import_exception_cmd = ast.ImportFrom(
                     catch_exception.__module__,
                     [ast.alias(catch_exception.__name__, None)], 0)
-                
+
                 tree.body[0].body.insert(1, import_exception_cmd)
-                
+
             for exception_class in ignore_exceptions:
                 import_exception_cmd = ast.ImportFrom(
                     exception_class.__module__,

@@ -1,7 +1,7 @@
 """This module contains code debugging tools, inspired by the 'fuckit' package.
 
 Use the `debug` decorator on functions or classes to debug them.
-What actually happens: it surround each statement of the functions with a
+What actually happens: it surrounds each statement of the functions with a
 try-except, and starts an ipdb session in the exception handling section.
 
 Usage notes (while in ipdb):

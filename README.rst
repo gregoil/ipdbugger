@@ -59,6 +59,7 @@ error (the division by zero):
     ipdb>
 
 From there, you have a couple of choices:
+
 * ``retry`` the action
 * ``continue`` with the rest of the flow (and ignore the error)
 * ``raise`` the exception, as if you didn't catch it at all

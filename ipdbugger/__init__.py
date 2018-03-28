@@ -14,6 +14,7 @@ Usage notes (while in ipdb):
 * Call 'raise' to let the exception raise.
 * Call 'retry' to redo the previous line.
 """
+from __future__ import print_function
 # pylint: disable=misplaced-bare-raise,protected-access,bare-except
 # pylint: disable=missing-docstring,too-many-locals,too-many-branches
 import re
@@ -78,9 +79,9 @@ def start_debugging():
     if hasattr(exc_value, '_ipdbugger_let_raise'):
         raise
 
-    print
+    print()
     for line in traceback.format_exception(exc_type, exc_value, exc_tb):
-        print colored(line, 'red'),
+        print(colored(line, 'red'), end=' ')
 
     # Get the frame with the error.
     test_frame = sys._getframe(-1).f_back
@@ -171,7 +172,7 @@ def debug(victim, ignore_exceptions=(), catch_exception=None):
 
         try:
             # Try to get the source code of the wrapped object.
-            sourcelines, start_num = inspect.getsourcelines(victim.func_code)
+            sourcelines, start_num = inspect.getsourcelines(victim.__code__)
             indent = re.match(r'\s*', sourcelines[0]).group()
             source = ''.join(l.replace(indent, '', 1) for l in sourcelines)
 
@@ -237,8 +238,8 @@ def debug(victim, ignore_exceptions=(), catch_exception=None):
             ast.fix_missing_locations(tree)
 
             # Create a new runnable code object to replace the original code
-            code = compile(tree, victim.func_code.co_filename, 'exec')
-            victim.func_code = code.co_consts[0]
+            code = compile(tree, victim.__code__.co_filename, 'exec')
+            victim.__code__ = code.co_consts[0]
 
             # Set a flag to indicate that the method was wrapped
             victim._ipdebug_wrapped = True
@@ -246,13 +247,13 @@ def debug(victim, ignore_exceptions=(), catch_exception=None):
             return victim
 
     elif inspect.ismethod(victim):
-        debug(victim.im_func, ignore_exceptions, catch_exception)
+        debug(victim.__func__, ignore_exceptions, catch_exception)
         return victim
 
-    elif isinstance(victim, (types.ClassType, type)):
+    elif isinstance(victim, type):
         # Wrap each method of the class with the debugger
-        for name, member in victim.__dict__.items():
-            if isinstance(member, (types.ClassType, types.FunctionType,
+        for name, member in list(victim.__dict__.items()):
+            if isinstance(member, (type, types.FunctionType,
                                    types.LambdaType, types.MethodType)):
 
                 setattr(victim, name,

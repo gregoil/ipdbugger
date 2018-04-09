@@ -15,6 +15,7 @@ Usage notes (while in ipdb):
 * Call 'retry' to redo the previous line.
 """
 from __future__ import print_function
+from __future__ import absolute_import
 # pylint: disable=misplaced-bare-raise,protected-access,bare-except
 # pylint: disable=missing-docstring,too-many-locals,too-many-branches
 import re
@@ -149,14 +150,15 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
                 not isinstance(node, ast.FunctionDef)):
 
             if sys.version_info > (3, 0):
-                new_node = ast.Try(
+                new_node = ast.Try(  # pylint: disable=no-member
                     orelse=[],
                     body=[node],
                     finalbody=[],
                     handlers=self.exception_handlers)
 
             else:
-                new_node = ast.TryExcept(
+                new_node = ast.TryExcept(  # pylint: disable=no-member
+
                     orelse=[],
                     body=[node],
                     handlers=self.exception_handlers)

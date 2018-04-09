@@ -1,8 +1,7 @@
 """Setup file for handling packaging and distribution."""
 from setuptools import setup
 
-__version__ = "1.1.3"
-
+__version__ = "2.0.0"
 
 setup(
     name="ipdbugger",
@@ -18,6 +17,14 @@ setup(
                       "colorama",
                       "termcolor"],
     packages=["ipdbugger"],
-    package_data={'': ['*.xls', '*.xsd', '*.json', '*.css', '*.xml', '*.rst']},
+    python_requires=">=2.6",
+    package_data={'': ['*.xls', '*.xsd', '*.json',
+                       '*.css', '*.xml', '*.rst']},
+    classifiers=[
+        'Programming Language :: Python :: 2',
+        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.6'
+    ],
     zip_safe=False
 )

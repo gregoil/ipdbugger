@@ -100,9 +100,20 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
     """
     def __init__(self, ignore_exceptions=(), catch_exception=None):
         raise_cmd = ast.Raise()
-        start_debug_cmd = ast.Expr(
-            value=ast.Call(ast.Name("start_debugging", ast.Load()), [], [],
-                           None, None))
+
+        if sys.version_info > (3, 0):
+            start_debug_cmd = ast.Expr(
+                value=ast.Call(
+                    ast.Name("start_debugging", ast.Load()),
+                    [],
+                    [],
+                )
+            )
+
+        else:
+            start_debug_cmd = ast.Expr(
+                value=ast.Call(ast.Name("start_debugging", ast.Load()),
+                               [], [], None, None))
 
         catch_exception_node = None
         if catch_exception is not None:
@@ -136,10 +147,19 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
 
         if (isinstance(node, ast.stmt) and
                 not isinstance(node, ast.FunctionDef)):
-            new_node = ast.TryExcept(
-                orelse=[],
-                body=[node],
-                handlers=self.exception_handlers)
+
+            if sys.version_info > (3, 0):
+                new_node = ast.Try(
+                    orelse=[],
+                    body=[node],
+                    finalbody=[],
+                    handlers=self.exception_handlers)
+
+            else:
+                new_node = ast.TryExcept(
+                    orelse=[],
+                    body=[node],
+                    handlers=self.exception_handlers)
 
             return ast.copy_location(new_node, node)
 

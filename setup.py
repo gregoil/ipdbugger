@@ -17,7 +17,7 @@ setup(
                       "colorama",
                       "termcolor"],
     packages=["ipdbugger"],
-    python_requires=">=2.6",
+    python_requires=">=2.7",
     package_data={'': ['*.xls', '*.xsd', '*.json',
                        '*.css', '*.xml', '*.rst']},
     classifiers=[

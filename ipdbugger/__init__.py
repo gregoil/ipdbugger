@@ -158,7 +158,6 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
 
             else:
                 new_node = ast.TryExcept(  # pylint: disable=no-member
-
                     orelse=[],
                     body=[node],
                     handlers=self.exception_handlers)
@@ -274,7 +273,7 @@ def debug(victim, ignore_exceptions=(), catch_exception=None):
 
     elif isinstance(victim, type):
         # Wrap each method of the class with the debugger
-        for name, member in list(victim.__dict__.items()):
+        for name, member in vars(victim).items():
             if isinstance(member, (type, types.FunctionType,
                                    types.LambdaType, types.MethodType)):
 

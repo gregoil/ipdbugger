@@ -14,6 +14,8 @@ Usage notes (while in ipdb):
 * Call 'raise' to let the exception raise.
 * Call 'retry' to redo the previous line.
 """
+from __future__ import print_function
+from __future__ import absolute_import
 # pylint: disable=misplaced-bare-raise,protected-access,bare-except
 # pylint: disable=missing-docstring,too-many-locals,too-many-branches
 import re
@@ -78,9 +80,9 @@ def start_debugging():
     if hasattr(exc_value, '_ipdbugger_let_raise'):
         raise
 
-    print
+    print()
     for line in traceback.format_exception(exc_type, exc_value, exc_tb):
-        print colored(line, 'red'),
+        print(colored(line, 'red'), end=' ')
 
     # Get the frame with the error.
     test_frame = sys._getframe(-1).f_back
@@ -99,9 +101,20 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
     """
     def __init__(self, ignore_exceptions=(), catch_exception=None):
         raise_cmd = ast.Raise()
-        start_debug_cmd = ast.Expr(
-            value=ast.Call(ast.Name("start_debugging", ast.Load()), [], [],
-                           None, None))
+
+        if sys.version_info > (3, 0):
+            start_debug_cmd = ast.Expr(
+                value=ast.Call(
+                    ast.Name("start_debugging", ast.Load()),
+                    [],
+                    [],
+                )
+            )
+
+        else:
+            start_debug_cmd = ast.Expr(
+                value=ast.Call(ast.Name("start_debugging", ast.Load()),
+                               [], [], None, None))
 
         catch_exception_node = None
         if catch_exception is not None:
@@ -135,10 +148,19 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
 
         if (isinstance(node, ast.stmt) and
                 not isinstance(node, ast.FunctionDef)):
-            new_node = ast.TryExcept(
-                orelse=[],
-                body=[node],
-                handlers=self.exception_handlers)
+
+            if sys.version_info > (3, 0):
+                new_node = ast.Try(  # pylint: disable=no-member
+                    orelse=[],
+                    body=[node],
+                    finalbody=[],
+                    handlers=self.exception_handlers)
+
+            else:
+                new_node = ast.TryExcept(  # pylint: disable=no-member
+                    orelse=[],
+                    body=[node],
+                    handlers=self.exception_handlers)
 
             return ast.copy_location(new_node, node)
 
@@ -171,7 +193,7 @@ def debug(victim, ignore_exceptions=(), catch_exception=None):
 
         try:
             # Try to get the source code of the wrapped object.
-            sourcelines, start_num = inspect.getsourcelines(victim.func_code)
+            sourcelines, start_num = inspect.getsourcelines(victim.__code__)
             indent = re.match(r'\s*', sourcelines[0]).group()
             source = ''.join(l.replace(indent, '', 1) for l in sourcelines)
 
@@ -237,8 +259,8 @@ def debug(victim, ignore_exceptions=(), catch_exception=None):
             ast.fix_missing_locations(tree)
 
             # Create a new runnable code object to replace the original code
-            code = compile(tree, victim.func_code.co_filename, 'exec')
-            victim.func_code = code.co_consts[0]
+            code = compile(tree, victim.__code__.co_filename, 'exec')
+            victim.__code__ = code.co_consts[0]
 
             # Set a flag to indicate that the method was wrapped
             victim._ipdebug_wrapped = True
@@ -246,13 +268,13 @@ def debug(victim, ignore_exceptions=(), catch_exception=None):
             return victim
 
     elif inspect.ismethod(victim):
-        debug(victim.im_func, ignore_exceptions, catch_exception)
+        debug(victim.__func__, ignore_exceptions, catch_exception)
         return victim
 
-    elif isinstance(victim, (types.ClassType, type)):
+    elif isinstance(victim, type):
         # Wrap each method of the class with the debugger
-        for name, member in victim.__dict__.items():
-            if isinstance(member, (types.ClassType, types.FunctionType,
+        for name, member in vars(victim).items():
+            if isinstance(member, (type, types.FunctionType,
                                    types.LambdaType, types.MethodType)):
 
                 setattr(victim, name,

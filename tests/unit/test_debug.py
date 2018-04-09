@@ -1,4 +1,4 @@
-"""Functional tests for the debug decorator in ipdbugger module."""
+"""Unit tests for the debug decorator in ipdbugger module."""
 from __future__ import absolute_import
 import sys
 from unittest import TestCase, main
@@ -14,12 +14,9 @@ try:
 except ImportError:
     from mock import patch
 
-TEST_FILE = "test_file.py"
-PYTHON_PATH = sys.executable
-
 
 class DebugCatchesExpcetionsCase(TestCase):
-    """Tests that an exception is caught only iff one is raised."""
+    """Tests that an exception is caught iff one is raised."""
 
     @debug
     def shouldnt_raise(self):

@@ -102,3 +102,4 @@ ENV/
 
 .idea
 /.project
+.pytest_cache

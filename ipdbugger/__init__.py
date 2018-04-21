@@ -35,7 +35,7 @@ colorama.init()
 
 
 class IPDBugger(Pdb):
-    """Deubbger class, adds functionality to the normal pdb."""
+    """Debugger class, adds functionality to the normal pdb."""
     def do_raise(self, arg):
         """Raise the last exception caught."""
         self.do_continue(arg)
@@ -93,15 +93,8 @@ def start_debugging():
 
 
 class ErrorsCatchTransformer(ast.NodeTransformer):
-    """Surround each statement with a try/except block to catch errors.
-
-    Attributes:
-        IGNORED_EXCEPTION (str): name of the base class of the exceptions
-             to catch, or None to catch all.
-    """
+    """Surround each statement with a try/except block to catch errors."""
     def __init__(self, ignore_exceptions=(), catch_exception=None):
-        raise_cmd = ast.Raise()
-
         if sys.version_info > (3, 0):
             start_debug_cmd = ast.Expr(
                 value=ast.Call(
@@ -133,7 +126,7 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
                 0,
                 ast.ExceptHandler(type=ignore_exception_node,
                                   name=None,
-                                  body=[raise_cmd]))
+                                  body=[ast.Raise()]))
 
     def generic_visit(self, node):
         """Surround node statement with a try/except block to catch errors.
@@ -283,6 +276,6 @@ def debug(victim, ignore_exceptions=(), catch_exception=None):
         return victim
 
     else:
-        raise RuntimeError("Debugger can only wrap functions and classes")
-
-    return victim
+        raise TypeError(
+            "Debugger can only wrap functions and classes. "
+            "Got object {!r} of type {}".format(victim, type(victim).__name__))

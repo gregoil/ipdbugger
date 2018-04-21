@@ -1,8 +1,5 @@
 ipdbugger
 ---------
-.. image:: https://travis-ci.org/gregoil/ipdbugger.svg?branch=master
-    :target: https://travis-ci.org/gregoil/ipdbugger
-
 .. image:: https://img.shields.io/pypi/v/ipdbugger.svg
     :alt: PyPI
     :target: https://pypi.python.org/pypi/ipdbugger/
@@ -10,6 +7,12 @@ ipdbugger
 .. image:: https://img.shields.io/pypi/pyversions/ipdbugger.svg
     :alt: Python versions
     :target: https://pypi.python.org/pypi/ipdbugger/
+
+.. image:: https://travis-ci.org/gregoil/ipdbugger.svg?branch=master
+    :target: https://travis-ci.org/gregoil/ipdbugger
+
+.. image:: https://coveralls.io/repos/github/gregoil/ipdbugger/badge.svg?branch=master
+    :target: https://coveralls.io/github/gregoil/ipdbugger
 
 ``ipdbugger`` is a code debugging tool based on ``ipdb``.
 

@@ -14,10 +14,10 @@ Usage notes (while in ipdb):
 * Call 'raise' to let the exception raise.
 * Call 'retry' to redo the previous line.
 """
-from __future__ import print_function
-from __future__ import absolute_import
 # pylint: disable=misplaced-bare-raise,protected-access,bare-except
 # pylint: disable=missing-docstring,too-many-locals,too-many-branches
+from __future__ import print_function
+from __future__ import absolute_import
 import re
 import ast
 import sys
@@ -52,7 +52,7 @@ class IPDBugger(Pdb):
                 self.curframe.f_lineno = prev_line
                 break
 
-            except:
+            except:  # noqa
                 prev_line -= 1
 
         self.do_jump(prev_line)

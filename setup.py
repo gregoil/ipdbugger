@@ -1,7 +1,17 @@
 """Setup file for handling packaging and distribution."""
+import sys
+
 from setuptools import setup
 
 __version__ = "2.0.0"
+
+REQUIREMENTS = [
+    "ipdb",
+    "colorama",
+    "termcolor",
+    "ipython{}".format(
+        "<6.0.0" if sys.version < "3.4" else "")
+]
 
 setup(
     name="ipdbugger",
@@ -13,9 +23,7 @@ setup(
     author_email="gregoil@walla.co.il",
     url="https://github.com/gregoil/ipdbugger",
     keywords="ipdb debug debugger exception",
-    install_requires=["ipdb",
-                      "colorama",
-                      "termcolor"],
+    install_requires=REQUIREMENTS,
     packages=["ipdbugger"],
     python_requires=">=2.7",
     package_data={'': ['*.xls', '*.xsd', '*.json',
@@ -26,5 +34,5 @@ setup(
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.6'
     ],
-    zip_safe=False
+    zip_safe=False,
 )

@@ -1,0 +1,21 @@
+[[source]]
+url = "https://pypi.python.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+ipdb = "*"
+colorama = "*"
+termcolor = "*"
+"e1839a8" = {path = ".", editable = true}
+ipython = "< 6.0"
+
+[dev-packages]
+pytest = "*"
+pylint = "*"
+"flake8" = "*"
+pytest-cov = "*"
+mock = "*"
+
+[requires]
+python_version = "3.6"

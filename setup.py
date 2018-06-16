@@ -1,7 +1,7 @@
 """Setup file for handling packaging and distribution."""
 from setuptools import setup
 
-__version__ = "2.0.0"
+__version__ = "2.0.1"
 
 setup(
     name="ipdbugger",
@@ -14,6 +14,7 @@ setup(
     url="https://github.com/gregoil/ipdbugger",
     keywords="ipdb debug debugger exception",
     install_requires=["ipdb",
+                      "future",
                       "colorama",
                       "termcolor"],
     packages=["ipdbugger"],

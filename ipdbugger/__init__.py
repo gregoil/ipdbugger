@@ -16,7 +16,7 @@ Usage notes (while in ipdb):
 """
 from __future__ import print_function
 from __future__ import absolute_import
-# pylint: disable=misplaced-bare-raise,protected-access,bare-except
+# pylint: disable=protected-access,bare-except
 # pylint: disable=missing-docstring,too-many-locals,too-many-branches
 import re
 import ast
@@ -28,6 +28,7 @@ import traceback
 
 import colorama
 from termcolor import colored
+from future.utils import raise_
 from IPython.core.debugger import Pdb
 
 # Enable color printing on screen.
@@ -36,12 +37,19 @@ colorama.init()
 
 class IPDBugger(Pdb):
     """Debugger class, adds functionality to the normal pdb."""
+    def __init__(self, exc_info, *args, **kwargs):
+        Pdb.__init__(self, *args, **kwargs)
+        self.exc_info = exc_info
+
     def do_raise(self, arg):
         """Raise the last exception caught."""
         self.do_continue(arg)
-        _, exc_value, _ = sys.exc_info()
+
+        # Annotating the exception for a continual re-raise
+        _, exc_value, _ = self.exc_info
         exc_value._ipdbugger_let_raise = True
-        raise
+
+        raise_(*self.exc_info)
 
     def do_retry(self, arg):
         """Rerun the previous command."""
@@ -52,7 +60,7 @@ class IPDBugger(Pdb):
                 self.curframe.f_lineno = prev_line
                 break
 
-            except:
+            except ValueError:
                 prev_line -= 1
 
         self.do_jump(prev_line)
@@ -77,8 +85,9 @@ def start_debugging():
     """
     exc_type, exc_value, exc_tb = sys.exc_info()
 
+    # If the exception has been annotated to be re-raised, raise the exception
     if hasattr(exc_value, '_ipdbugger_let_raise'):
-        raise
+        raise_(*sys.exc_info())
 
     print()
     for line in traceback.format_exception(exc_type, exc_value, exc_tb):
@@ -89,13 +98,14 @@ def start_debugging():
 
     from ipdb.__main__ import wrap_sys_excepthook, def_colors
     wrap_sys_excepthook()
-    IPDBugger(def_colors).set_trace(test_frame)
+    IPDBugger(exc_info=sys.exc_info(),
+              color_scheme=def_colors).set_trace(test_frame)
 
 
 class ErrorsCatchTransformer(ast.NodeTransformer):
     """Surround each statement with a try/except block to catch errors."""
     def __init__(self, ignore_exceptions=(), catch_exception=None):
-        if sys.version_info > (3, 0):
+        if sys.version_info > (3, 0):  # pragma: no cover
             start_debug_cmd = ast.Expr(
                 value=ast.Call(
                     ast.Name("start_debugging", ast.Load()),
@@ -104,7 +114,7 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
                 )
             )
 
-        else:
+        else:  # pragma: no cover
             start_debug_cmd = ast.Expr(
                 value=ast.Call(ast.Name("start_debugging", ast.Load()),
                                [], [], None, None))
@@ -142,14 +152,14 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
         if (isinstance(node, ast.stmt) and
                 not isinstance(node, ast.FunctionDef)):
 
-            if sys.version_info > (3, 0):
+            if sys.version_info > (3, 0):  # pragma: no cover
                 new_node = ast.Try(  # pylint: disable=no-member
                     orelse=[],
                     body=[node],
                     finalbody=[],
                     handlers=self.exception_handlers)
 
-            else:
+            else:  # pragma: no cover
                 new_node = ast.TryExcept(  # pylint: disable=no-member
                     orelse=[],
                     body=[node],
@@ -164,7 +174,8 @@ def debug(victim, ignore_exceptions=(), catch_exception=None):
     """A decorator function to catch exceptions and enter debug mode.
 
     Args:
-        victim (object): either a class or function to wrap and debug.
+        victim (typing.Union(type, function)): either a class or function to
+            wrap and debug.
         ignore_exceptions (list): list of classes of exceptions not to catch.
         catch_exception (type): class of exception to catch and debug.
             default is None, meaning catch all exceptions.

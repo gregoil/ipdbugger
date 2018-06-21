@@ -1,8 +1,8 @@
 """Unit tests for the debug decorator in ipdbugger module."""
 from __future__ import absolute_import
 
-from IPython.utils.capture import capture_output
 import pytest
+from IPython.utils.capture import capture_output
 
 from ipdbugger import debug
 

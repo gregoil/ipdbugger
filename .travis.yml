@@ -5,7 +5,7 @@ python:
 - "3.6"
 
 install: pip install tox coveralls
-script: tox -e py27,py35,py36
+script: tox -e $(echo py$TRAVIS_PYTHON_VERSION | tr -d .)
 after_success: coveralls
 
 deploy:

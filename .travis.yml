@@ -1,3 +1,7 @@
+stages:
+  - test
+  - deploy
+
 language: python
 python:
 - "2.7"
@@ -9,6 +13,7 @@ script: tox -e $(echo py$TRAVIS_PYTHON_VERSION | tr -d .)
 after_success: coveralls
 
 deploy:
+  stage: deploy
   provider: pypi
   on:
     tags: true

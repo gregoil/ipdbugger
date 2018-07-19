@@ -37,6 +37,7 @@ colorama.init()
 
 class IPDBugger(TerminalPdb):
     """Debugger class, adds functionality to the normal pdb."""
+
     def __init__(self, exc_info, *args, **kwargs):
         TerminalPdb.__init__(self, *args, **kwargs)
         self.exc_info = exc_info

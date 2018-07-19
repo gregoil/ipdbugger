@@ -29,16 +29,17 @@ import traceback
 import colorama
 from termcolor import colored
 from future.utils import raise_
-from IPython.core.debugger import Pdb
+from IPython.terminal.debugger import TerminalPdb
 
 # Enable color printing on screen.
 colorama.init()
 
 
-class IPDBugger(Pdb):
+class IPDBugger(TerminalPdb):
     """Debugger class, adds functionality to the normal pdb."""
+
     def __init__(self, exc_info, *args, **kwargs):
-        Pdb.__init__(self, *args, **kwargs)
+        TerminalPdb.__init__(self, *args, **kwargs)
         self.exc_info = exc_info
 
     def do_raise(self, arg):
@@ -69,7 +70,7 @@ class IPDBugger(Pdb):
 
     def dispatch_line(self, frame):
         """Handle line action and return the next line callback."""
-        callback = Pdb.dispatch_line(self, frame)
+        callback = TerminalPdb.dispatch_line(self, frame)
 
         # If the ipdb session ended, don't return a callback for the next line
         if self.stoplineno == -1:
@@ -206,7 +207,7 @@ def debug(victim, ignore_exceptions=(), catch_exception=None):
             # of the whole function
             @functools.wraps(victim)
             def wrapper(*args, **kw):
-                victim(*args, **kw)
+                return victim(*args, **kw)
 
             return wrapper
 

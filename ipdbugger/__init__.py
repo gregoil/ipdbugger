@@ -25,6 +25,7 @@ import types
 import inspect
 import functools
 import traceback
+from contextlib import contextmanager
 from copy import copy
 
 import colorama
@@ -140,18 +141,22 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
                                   name=None,
                                   body=[ast.Raise()]))
 
-    def visit_TryExcept(self, node):
-        new_handlers = [copy(handler) for handler in node.handlers]
-
-        for handler in new_handlers:
+    @contextmanager
+    def ignore_exceptions(self, exception_list):
+        handlers = [copy(handler) for handler in exception_list]
+        for handler in handlers:
             handler.body = [ast.Raise()]
             self.exception_handlers.insert(0, handler)
 
-        items = [self.visit(item) for item in node.body]
-        node.body = items
+        yield
 
-        for handler in new_handlers:
+        for handler in handlers:
             self.exception_handlers.remove(handler)
+
+    def visit_TryExcept(self, node):
+        with self.ignore_exceptions(node.handlers):
+            items = [self.visit(item) for item in node.body]
+            node.body = items
 
         return node
 

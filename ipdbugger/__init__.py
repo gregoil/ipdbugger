@@ -25,6 +25,7 @@ import types
 import inspect
 import functools
 import traceback
+from copy import copy
 
 import colorama
 from termcolor import colored
@@ -139,6 +140,21 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
                                   name=None,
                                   body=[ast.Raise()]))
 
+    def visit_TryExcept(self, node):
+        new_handlers = [copy(handler) for handler in node.handlers]
+
+        for handler in new_handlers:
+            handler.body = [ast.Raise()]
+            self.exception_handlers.insert(0, handler)
+
+        items = [self.visit(item) for item in node.body]
+        node.body = items
+
+        for handler in new_handlers:
+            self.exception_handlers.remove(handler)
+
+        return node
+
     def generic_visit(self, node):
         """Surround node statement with a try/except block to catch errors.
 
@@ -158,13 +174,13 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
                     orelse=[],
                     body=[node],
                     finalbody=[],
-                    handlers=self.exception_handlers)
+                    handlers=self.exception_handlers[:])
 
             else:  # pragma: no cover
                 new_node = ast.TryExcept(  # pylint: disable=no-member
                     orelse=[],
                     body=[node],
-                    handlers=self.exception_handlers)
+                    handlers=self.exception_handlers[:])
 
             return ast.copy_location(new_node, node)
 

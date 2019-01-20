@@ -25,8 +25,6 @@ import types
 import inspect
 import functools
 import traceback
-from contextlib import contextmanager
-from copy import copy
 
 import colorama
 from termcolor import colored
@@ -107,6 +105,7 @@ def start_debugging():
 
 class ErrorsCatchTransformer(ast.NodeTransformer):
     """Surround each statement with a try/except block to catch errors."""
+
     def __init__(self, ignore_exceptions=(), catch_exception=None):
         if sys.version_info > (3, 0):  # pragma: no cover
             start_debug_cmd = ast.Expr(
@@ -141,24 +140,36 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
                                   name=None,
                                   body=[ast.Raise()]))
 
-    @contextmanager
-    def ignore_exceptions(self, exception_list):
-        handlers = [copy(handler) for handler in exception_list]
-        for handler in handlers:
-            handler.body = [ast.Raise()]
-            self.exception_handlers.insert(0, handler)
+    def try_except_handler(self, node):
+        """Handler for try except statement to ignore excepted exceptions."""
+        # List all excepted handlers
+        excepted = [ast.ExceptHandler(type=ast.Name(handler.type.id,
+                                                    ast.Load()),
+                                      name=None,
+                                      body=[ast.Raise()])
+                    for handler in node.handlers]
 
-        yield
+        # Add to ignore list
+        for except_handler in excepted:
+            self.exception_handlers.insert(0, except_handler)
 
-        for handler in handlers:
-            self.exception_handlers.remove(handler)
+        # Run recursively on all sub nodes
+        items = [self.visit(item) for item in node.body]
+        node.body = items
 
-    def visit_TryExcept(self, node):
-        with self.ignore_exceptions(node.handlers):
-            items = [self.visit(item) for item in node.body]
-            node.body = items
+        # Remove from ignore list
+        for except_handler in excepted:
+            self.exception_handlers.remove(except_handler)
 
         return node
+
+    if sys.version_info > (3, 0):  # pragma: no cover
+        def visit_Try(self, node):  # pylint: disable=invalid-name
+            return self.try_except_handler(node)
+
+    else:  # pragma: no cover
+        def visit_TryExcept(self, node):  # pylint: disable=invalid-name
+            return self.try_except_handler(node)
 
     def generic_visit(self, node):
         """Surround node statement with a try/except block to catch errors.
@@ -262,9 +273,6 @@ def debug(victim, ignore_exceptions=(), catch_exception=None):
 
                 tree.body[0].body.insert(1, import_exception_cmd)
 
-            # Delete the debugger decorator of the function
-            del tree.body[0].decorator_list[:]
-
             # Index of the function (first original command in it)
             first_command_index = 1 + len(ignore_exceptions)
             if catch_exception is not None:
@@ -302,7 +310,6 @@ def debug(victim, ignore_exceptions=(), catch_exception=None):
         for name, member in vars(victim).items():
             if isinstance(member, (type, types.FunctionType,
                                    types.LambdaType, types.MethodType)):
-
                 setattr(victim, name,
                         debug(member, ignore_exceptions, catch_exception))
 

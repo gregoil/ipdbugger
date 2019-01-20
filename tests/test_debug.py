@@ -136,3 +136,34 @@ def test_non_targeted_exceptions():
 
     with pytest.raises(ValueError):
         func()
+
+
+def test_ignoring_excepted_exceptions():
+    """Test ignoring exceptions that should be excepted."""
+    def func():
+        try:
+            raise ValueError()
+        except ValueError:
+            raise
+
+    func = debug(func)
+
+    with pytest.raises(ValueError):
+        func()
+
+
+def test_ignoring_excepted_exceptions_only_on_try_except_scope():
+    """Test ignoring exceptions that should be only on try except scope."""
+    def func():
+        try:
+            pass
+        except ValueError:
+            raise
+
+        raise ValueError()
+
+    func = debug(func)
+
+    with capture_output(), patch('bdb.Bdb.set_trace') as set_trace:
+        func()
+        assert set_trace.called

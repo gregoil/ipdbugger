@@ -140,6 +140,22 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
                                   name=None,
                                   body=[ast.Raise()]))
 
+    def wrap_with_try_except(self, node):
+        if sys.version_info > (3, 0):  # pragma: no cover
+            new_node = ast.Try(  # pylint: disable=no-member
+                orelse=[],
+                body=[node],
+                finalbody=[],
+                handlers=self.exception_handlers[:])
+
+        else:  # pragma: no cover
+            new_node = ast.TryExcept(  # pylint: disable=no-member
+                orelse=[],
+                body=[node],
+                handlers=self.exception_handlers[:])
+
+        return ast.copy_location(new_node, node)
+
     def try_except_handler(self, node):
         """Handler for try except statement to ignore excepted exceptions."""
         # List all excepted handlers
@@ -161,7 +177,7 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
         for except_handler in excepted:
             self.exception_handlers.remove(except_handler)
 
-        return node
+        return self.wrap_with_try_except(node)
 
     if sys.version_info > (3, 0):  # pragma: no cover
         def visit_Try(self, node):  # pylint: disable=invalid-name
@@ -184,21 +200,7 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
 
         if (isinstance(node, ast.stmt) and
                 not isinstance(node, ast.FunctionDef)):
-
-            if sys.version_info > (3, 0):  # pragma: no cover
-                new_node = ast.Try(  # pylint: disable=no-member
-                    orelse=[],
-                    body=[node],
-                    finalbody=[],
-                    handlers=self.exception_handlers[:])
-
-            else:  # pragma: no cover
-                new_node = ast.TryExcept(  # pylint: disable=no-member
-                    orelse=[],
-                    body=[node],
-                    handlers=self.exception_handlers[:])
-
-            return ast.copy_location(new_node, node)
+            return self.wrap_with_try_except(node)
 
         return node
 
@@ -272,6 +274,9 @@ def debug(victim, ignore_exceptions=(), catch_exception=None):
                     [ast.alias(exception_class.__name__, None)], 0)
 
                 tree.body[0].body.insert(1, import_exception_cmd)
+
+            # Delete the debugger decorator of the function
+            del tree.body[0].decorator_list[:]
 
             # Index of the function (first original command in it)
             first_command_index = 1 + len(ignore_exceptions)

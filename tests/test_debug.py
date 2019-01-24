@@ -181,7 +181,7 @@ def test_wrapping_try_except_statement():
         assert set_trace.called_once
 
 
-def test_wrapping_try_except_statement():
+def test_wrapping_try_except_statement_with_no_specific_exception_type():
     """Test wrapping try except statement with no specific exception
         type excepted."""
     @debug

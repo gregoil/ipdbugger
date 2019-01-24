@@ -179,3 +179,16 @@ def test_wrapping_try_except_statement():
     with capture_output(), patch('bdb.Bdb.set_trace') as set_trace:
         func()
         assert set_trace.called_once
+
+
+def test_wrapping_try_except_statement():
+    """Test wrapping try except statement with no specific exception
+        type excepted."""
+    @debug
+    def func():
+        try:
+            raise ValueError()
+        except:
+            pass
+
+    func()

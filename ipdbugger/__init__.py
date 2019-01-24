@@ -16,6 +16,7 @@ Usage notes (while in ipdb):
 """
 from __future__ import print_function
 from __future__ import absolute_import
+# pylint: disable=no-member
 # pylint: disable=protected-access,bare-except
 # pylint: disable=missing-docstring,too-many-locals,too-many-branches
 import re
@@ -140,52 +141,32 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
                                   name=None,
                                   body=[ast.Raise()]))
 
-    def wrap_with_try_except(self, node):
-        if sys.version_info > (3, 0):  # pragma: no cover
-            new_node = ast.Try(  # pylint: disable=no-member
-                orelse=[],
-                body=[node],
-                finalbody=[],
-                handlers=self.exception_handlers[:])
-
-        else:  # pragma: no cover
-            new_node = ast.TryExcept(  # pylint: disable=no-member
-                orelse=[],
-                body=[node],
-                handlers=self.exception_handlers[:])
-
-        return ast.copy_location(new_node, node)
-
     def try_except_handler(self, node):
         """Handler for try except statement to ignore excepted exceptions."""
         # List all excepted handlers
-        excepted = [ast.ExceptHandler(type=ast.Name(handler.type.id,
-                                                    ast.Load()),
+        excepted = [ast.ExceptHandler(type=handler.type,
                                       name=None,
                                       body=[ast.Raise()])
                     for handler in node.handlers]
 
-        # Add to ignore list
-        for except_handler in excepted:
-            self.exception_handlers.insert(0, except_handler)
+        new_exception_handlers = []
+        for except_handler in excepted + self.exception_handlers:
+            new_exception_handlers.append(except_handler)
 
-        # Run recursively on all sub nodes
-        items = [self.visit(item) for item in node.body]
-        node.body = items
+            # Default 'except:' must be last
+            if except_handler.type is None:
+                break
 
-        # Remove from ignore list
-        for except_handler in excepted:
-            self.exception_handlers.remove(except_handler)
+        # Set the new ignore list, and save the old one
+        old_exception_handlers, self.exception_handlers = \
+            self.exception_handlers, new_exception_handlers
 
-        return self.wrap_with_try_except(node)
+        # Run recursively on all sub nodes with the new ignore list
+        for item in node.body:
+            self.visit(item)
 
-    if sys.version_info > (3, 0):  # pragma: no cover
-        def visit_Try(self, node):  # pylint: disable=invalid-name
-            return self.try_except_handler(node)
-
-    else:  # pragma: no cover
-        def visit_TryExcept(self, node):  # pylint: disable=invalid-name
-            return self.try_except_handler(node)
+        # Revert changes from ignore list
+        self.exception_handlers = old_exception_handlers
 
     def generic_visit(self, node):
         """Surround node statement with a try/except block to catch errors.
@@ -196,13 +177,35 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
         Args:
             node (ast.AST): node statement to surround.
         """
-        super(ErrorsCatchTransformer, self).generic_visit(node)
-
         if (isinstance(node, ast.stmt) and
                 not isinstance(node, ast.FunctionDef)):
-            return self.wrap_with_try_except(node)
 
-        return node
+            is_python_3 = sys.version_info > (3, 0)
+            ast_try_except = ast.Try if is_python_3 else ast.TryExcept
+            try_except_extra_params = {"finalbody": []} if is_python_3 else {}
+
+            new_node = ast_try_except(
+                orelse=[],
+                body=[node],
+                handlers=self.exception_handlers[:],
+                **try_except_extra_params)
+
+            # handling try except statement
+            if isinstance(node, ast_try_except):
+                self.try_except_handler(node)
+                ast.copy_location(new_node, node)
+                return new_node
+
+            # Set new node location as old node
+            ast.copy_location(new_node, node)
+
+            # Run recursively on all sub nodes
+            super(ErrorsCatchTransformer, self).generic_visit(node)
+
+            return new_node
+
+        # Run recursively on all sub nodes
+        return super(ErrorsCatchTransformer, self).generic_visit(node)
 
 
 def debug(victim, ignore_exceptions=(), catch_exception=None):
@@ -274,9 +277,6 @@ def debug(victim, ignore_exceptions=(), catch_exception=None):
                     [ast.alias(exception_class.__name__, None)], 0)
 
                 tree.body[0].body.insert(1, import_exception_cmd)
-
-            # Delete the debugger decorator of the function
-            del tree.body[0].decorator_list[:]
 
             # Index of the function (first original command in it)
             first_command_index = 1 + len(ignore_exceptions)

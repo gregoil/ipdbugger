@@ -26,6 +26,7 @@ import types
 import inspect
 import functools
 import traceback
+from itertools import chain
 
 import colorama
 from termcolor import colored
@@ -150,7 +151,7 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
                     for handler in node.handlers]
 
         new_exception_handlers = []
-        for except_handler in excepted + self.exception_handlers:
+        for except_handler in chain(excepted, self.exception_handlers):
             new_exception_handlers.append(except_handler)
 
             # Default 'except:' must be last
@@ -187,7 +188,7 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
             new_node = ast_try_except(
                 orelse=[],
                 body=[node],
-                handlers=self.exception_handlers[:],
+                handlers=self.exception_handlers,
                 **try_except_extra_params)
 
             # handling try except statement
@@ -277,6 +278,9 @@ def debug(victim, ignore_exceptions=(), catch_exception=None):
                     [ast.alias(exception_class.__name__, None)], 0)
 
                 tree.body[0].body.insert(1, import_exception_cmd)
+
+            # Delete the debugger decorator of the function
+            del tree.body[0].decorator_list[:]
 
             # Index of the function (first original command in it)
             first_command_index = 1 + len(ignore_exceptions)

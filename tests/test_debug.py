@@ -181,7 +181,7 @@ def test_wrapping_try_except_statement():
         assert set_trace.called_once
 
 
-def test_wrapping_try_except_statement_with_no_specific_exception_type():
+def test_wrapping_unbound_catch():
     """Test wrapping try except statement with no specific exception
         type excepted."""
     @debug
@@ -189,6 +189,24 @@ def test_wrapping_try_except_statement_with_no_specific_exception_type():
         try:
             raise ValueError()
         except:
+            pass
+
+    func()
+
+
+def test_wrapping_twice_with_try_except_statement():
+    """Test wrapping try except within try except statement."""
+    @debug
+    def func():
+        try:
+            try:
+                raise ValueError()
+            except ValueError:
+                pass
+
+            raise KeyError()
+
+        except KeyError:
             pass
 
     func()

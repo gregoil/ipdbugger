@@ -136,3 +136,77 @@ def test_non_targeted_exceptions():
 
     with pytest.raises(ValueError):
         func()
+
+
+def test_ignoring_excepted_exceptions():
+    """Test ignoring exceptions that should be excepted."""
+    @debug
+    def func():
+        try:
+            raise ValueError()
+        except ValueError:
+            pass
+
+    func()
+
+
+def test_ignoring_excepted_exceptions_only_on_try_except_scope():
+    """Test ignoring exceptions that should be only on try except scope."""
+    def func():
+        try:
+            pass
+        except ValueError:
+            pass
+
+        raise ValueError()
+
+    func = debug(func)
+
+    with capture_output(), patch('bdb.Bdb.set_trace') as set_trace:
+        func()
+        assert set_trace.called
+
+
+def test_wrapping_try_except_statement():
+    """Test that try except statement also wrapped with ipdbugger."""
+    @debug
+    def func():
+        try:
+            raise ValueError()
+        except ValueError:
+            raise
+
+    with capture_output(), patch('bdb.Bdb.set_trace') as set_trace:
+        func()
+        assert set_trace.called_once
+
+
+def test_wrapping_unbound_catch():
+    """Test wrapping try except statement with no specific exception
+        type excepted."""
+    @debug
+    def func():
+        try:
+            raise ValueError()
+        except:
+            pass
+
+    func()
+
+
+def test_wrapping_twice_with_try_except_statement():
+    """Test wrapping try except within try except statement."""
+    @debug
+    def func():
+        try:
+            try:
+                raise ValueError()
+            except ValueError:
+                pass
+
+            raise KeyError()
+
+        except KeyError:
+            pass
+
+    func()

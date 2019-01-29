@@ -16,6 +16,7 @@ Usage notes (while in ipdb):
 """
 from __future__ import print_function
 from __future__ import absolute_import
+# pylint: disable=no-member
 # pylint: disable=protected-access,bare-except
 # pylint: disable=missing-docstring,too-many-locals,too-many-branches
 import re
@@ -25,6 +26,7 @@ import types
 import inspect
 import functools
 import traceback
+from itertools import chain
 
 import colorama
 from termcolor import colored
@@ -105,6 +107,7 @@ def start_debugging():
 
 class ErrorsCatchTransformer(ast.NodeTransformer):
     """Surround each statement with a try/except block to catch errors."""
+
     def __init__(self, ignore_exceptions=(), catch_exception=None):
         if sys.version_info > (3, 0):  # pragma: no cover
             start_debug_cmd = ast.Expr(
@@ -139,6 +142,33 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
                                   name=None,
                                   body=[ast.Raise()]))
 
+    def try_except_handler(self, node):
+        """Handler for try except statement to ignore excepted exceptions."""
+        # List all excepted handlers
+        excepted = [ast.ExceptHandler(type=handler.type,
+                                      name=None,
+                                      body=[ast.Raise()])
+                    for handler in node.handlers]
+
+        new_exception_handlers = []
+        for except_handler in chain(excepted, self.exception_handlers):
+            new_exception_handlers.append(except_handler)
+
+            # Default 'except:' must be last
+            if except_handler.type is None:
+                break
+
+        # Set the new ignore list, and save the old one
+        old_exception_handlers, self.exception_handlers = \
+            self.exception_handlers, new_exception_handlers
+
+        # Run recursively on all sub nodes with the new ignore list
+        for item in node.body:
+            self.visit(item)
+
+        # Revert changes from ignore list
+        self.exception_handlers = old_exception_handlers
+
     def generic_visit(self, node):
         """Surround node statement with a try/except block to catch errors.
 
@@ -148,27 +178,35 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
         Args:
             node (ast.AST): node statement to surround.
         """
-        super(ErrorsCatchTransformer, self).generic_visit(node)
-
         if (isinstance(node, ast.stmt) and
                 not isinstance(node, ast.FunctionDef)):
 
-            if sys.version_info > (3, 0):  # pragma: no cover
-                new_node = ast.Try(  # pylint: disable=no-member
-                    orelse=[],
-                    body=[node],
-                    finalbody=[],
-                    handlers=self.exception_handlers)
+            is_python_3 = sys.version_info > (3, 0)
+            ast_try_except = ast.Try if is_python_3 else ast.TryExcept
+            try_except_extra_params = {"finalbody": []} if is_python_3 else {}
 
-            else:  # pragma: no cover
-                new_node = ast.TryExcept(  # pylint: disable=no-member
-                    orelse=[],
-                    body=[node],
-                    handlers=self.exception_handlers)
+            new_node = ast_try_except(
+                orelse=[],
+                body=[node],
+                handlers=self.exception_handlers,
+                **try_except_extra_params)
 
-            return ast.copy_location(new_node, node)
+            # handling try except statement
+            if isinstance(node, ast_try_except):
+                self.try_except_handler(node)
+                ast.copy_location(new_node, node)
+                return new_node
 
-        return node
+            # Set new node location as old node
+            ast.copy_location(new_node, node)
+
+            # Run recursively on all sub nodes
+            super(ErrorsCatchTransformer, self).generic_visit(node)
+
+            return new_node
+
+        # Run recursively on all sub nodes
+        return super(ErrorsCatchTransformer, self).generic_visit(node)
 
 
 def debug(victim, ignore_exceptions=(), catch_exception=None):
@@ -281,7 +319,6 @@ def debug(victim, ignore_exceptions=(), catch_exception=None):
         for name, member in vars(victim).items():
             if isinstance(member, (type, types.FunctionType,
                                    types.LambdaType, types.MethodType)):
-
                 setattr(victim, name,
                         debug(member, ignore_exceptions, catch_exception))
 

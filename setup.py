@@ -1,7 +1,7 @@
 """Setup file for handling packaging and distribution."""
 from setuptools import setup
 
-__version__ = "2.0.3"
+__version__ = "2.1.0"
 
 setup(
     name="ipdbugger",

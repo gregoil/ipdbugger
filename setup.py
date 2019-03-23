@@ -13,7 +13,7 @@ setup(
     author_email="gregoil@walla.co.il",
     url="https://github.com/gregoil/ipdbugger",
     keywords="ipdb debug debugger exception",
-    install_requires=["ipdb",
+    install_requires=["ipdb==0.11",
                       "future",
                       "colorama",
                       "termcolor"],

@@ -301,9 +301,24 @@ def debug(victim, ignore_exceptions=(), catch_exception=None):
 
             ast.fix_missing_locations(tree)
 
+            # Set wrapping function body with all free_vars sets to None
+            body_list = [ast.parse("{var} = None".format(var=free_var)).body[0]
+                         for free_var in victim.__code__.co_freevars]
+
+            # Add the original function ("victim") to wrapping function body
+            body_list.append(tree.body[0])
+
+            # Define the wrapping function object
+            function_definition = "def _free_vars_wrapper(): pass"
+            wrapping_function = ast.parse(function_definition).body[0]
+            wrapping_function.body = body_list
+
+            # Replace original function ("victim") with wrapping function
+            tree.body[0] = wrapping_function
+
             # Create a new runnable code object to replace the original code
             code = compile(tree, victim.__code__.co_filename, 'exec')
-            victim.__code__ = code.co_consts[0]
+            victim.__code__ = code.co_consts[0].co_consts[-1]
 
             # Set a flag to indicate that the method was wrapped
             victim._ipdebug_wrapped = True

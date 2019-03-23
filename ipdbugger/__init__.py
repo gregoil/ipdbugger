@@ -318,7 +318,7 @@ def debug(victim, ignore_exceptions=(), catch_exception=None):
 
             # Create a new runnable code object to replace the original code
             code = compile(tree, victim.__code__.co_filename, 'exec')
-            victim.__code__ = code.co_consts[0].co_consts[-1]
+            victim.__code__ = code.co_consts[0].co_consts[1]
 
             # Set a flag to indicate that the method was wrapped
             victim._ipdebug_wrapped = True

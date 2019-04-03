@@ -99,10 +99,9 @@ def start_debugging():
     # Get the frame with the error.
     test_frame = sys._getframe(-1).f_back
 
-    from ipdb.__main__ import wrap_sys_excepthook, def_colors
+    from ipdb.__main__ import wrap_sys_excepthook
     wrap_sys_excepthook()
-    IPDBugger(exc_info=sys.exc_info(),
-              color_scheme=def_colors).set_trace(test_frame)
+    IPDBugger(exc_info=sys.exc_info()).set_trace(test_frame)
 
 
 class ErrorsCatchTransformer(ast.NodeTransformer):
@@ -163,8 +162,7 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
             self.exception_handlers, new_exception_handlers
 
         # Run recursively on all sub nodes with the new ignore list
-        for item in node.body:
-            self.visit(item)
+        super(ErrorsCatchTransformer, self).generic_visit(node)
 
         # Revert changes from ignore list
         self.exception_handlers = old_exception_handlers
@@ -301,19 +299,20 @@ def debug(victim, ignore_exceptions=(), catch_exception=None):
 
             ast.fix_missing_locations(tree)
 
-            # Set wrapping function body with all free_vars sets to None
-            body_list = [ast.parse("{var} = None".format(var=free_var)).body[0]
-                         for free_var in victim.__code__.co_freevars]
-
-            # Add the original function ("victim") to wrapping function body
-            body_list.append(tree.body[0])
-
             # Define the wrapping function object
             function_definition = "def _free_vars_wrapper(): pass"
             wrapping_function = ast.parse(function_definition).body[0]
+
+            # Initialize closure's variables to None
+            body_list = [ast.parse("{var} = None".format(var=free_var)).body[0]
+                         for free_var in victim.__code__.co_freevars]
+
+            # Add the original function ("victim") to the wrapping function
+            body_list.append(tree.body[0])
+
             wrapping_function.body = body_list
 
-            # Replace original function ("victim") with wrapping function
+            # Replace original function ("victim") with the wrapping function
             tree.body[0] = wrapping_function
 
             # Create a new runnable code object to replace the original code

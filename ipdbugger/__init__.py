@@ -162,7 +162,7 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
             self.exception_handlers, new_exception_handlers
 
         # Run recursively on all sub nodes with the new ignore list
-        super(ErrorsCatchTransformer, self).generic_visit(node)
+        node.body = [self.visit(node_item) for node_item in node.body]
 
         # Revert changes from ignore list
         self.exception_handlers = old_exception_handlers

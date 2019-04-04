@@ -210,3 +210,17 @@ def test_wrapping_twice_with_try_except_statement():
             pass
 
     func()
+
+
+def test_wrapping_function_with_closure():
+    """Test wrapping function with closure"""
+    raise_exc = True
+
+    @debug
+    def func():
+        if raise_exc:
+            raise ValueError()
+
+    with capture_output(), patch('bdb.Bdb.set_trace') as set_trace:
+        func()
+        assert set_trace.called_once

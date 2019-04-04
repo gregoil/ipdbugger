@@ -108,6 +108,21 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
     """Surround each statement with a try/except block to catch errors."""
 
     def __init__(self, ignore_exceptions=(), catch_exception=None):
+
+        self.catch_exception = catch_exception
+        self.exception_handlers = []
+
+        for exception_class in ignore_exceptions:
+            ignore_exception_node = ast.Name(exception_class.__name__,
+                                             ast.Load())
+
+            self.exception_handlers.insert(
+                0,
+                ast.ExceptHandler(type=ignore_exception_node,
+                                  name=None,
+                                  body=[ast.Raise()]))
+
+    def create_start_debug_handler(self):
         if sys.version_info > (3, 0):  # pragma: no cover
             start_debug_cmd = ast.Expr(
                 value=ast.Call(
@@ -123,23 +138,14 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
                                [], [], None, None))
 
         catch_exception_node = None
-        if catch_exception is not None:
-            catch_exception_node = ast.Name(catch_exception.__name__,
+        if self.catch_exception is not None:
+            catch_exception_node = ast.Name(self.catch_exception.__name__,
                                             ast.Load())
 
-        self.exception_handlers = [ast.ExceptHandler(type=catch_exception_node,
-                                                     name=None,
-                                                     body=[start_debug_cmd])]
-
-        for exception_class in ignore_exceptions:
-            ignore_exception_node = ast.Name(exception_class.__name__,
-                                             ast.Load())
-
-            self.exception_handlers.insert(
-                0,
-                ast.ExceptHandler(type=ignore_exception_node,
-                                  name=None,
-                                  body=[ast.Raise()]))
+        return ast.ExceptHandler(type=catch_exception_node,
+                                 name=None,
+                                 body=[start_debug_cmd,
+                                       ast.Pass()])
 
     def try_except_handler(self, node):
         """Handler for try except statement to ignore excepted exceptions."""
@@ -167,6 +173,23 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
         # Revert changes from ignore list
         self.exception_handlers = old_exception_handlers
 
+    def _get_last_lineno(self, node):
+        max_lineno = 0
+
+        if hasattr(node, "lineno"):
+            max_lineno = node.lineno
+
+        for _, field in ast.iter_fields(node):
+            if isinstance(field, list):
+                for value in field:
+                    if isinstance(value, ast.AST):
+                        max_lineno = max(max_lineno, self._get_last_lineno(value))
+
+            elif isinstance(field, ast.AST):
+                max_lineno = max(max_lineno, self._get_last_lineno(field))
+
+        return max_lineno
+
     def generic_visit(self, node):
         """Surround node statement with a try/except block to catch errors.
 
@@ -186,7 +209,7 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
             new_node = ast_try_except(
                 orelse=[],
                 body=[node],
-                handlers=self.exception_handlers,
+                handlers=self.exception_handlers[:],
                 **try_except_extra_params)
 
             # handling try except statement
@@ -194,6 +217,10 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
                 self.try_except_handler(node)
                 ast.copy_location(new_node, node)
                 return new_node
+
+            start_debug_handler = self.create_start_debug_handler()
+            start_debug_handler.body[1].lineno = self._get_last_lineno(node) + 1
+            new_node.handlers.append(start_debug_handler)
 
             # Set new node location as old node
             ast.copy_location(new_node, node)
@@ -284,13 +311,6 @@ def debug(victim, ignore_exceptions=(), catch_exception=None):
             first_command_index = 1 + len(ignore_exceptions)
             if catch_exception is not None:
                 first_command_index += 1
-
-            # Add pass at the end (to enable debugging the last command)
-            pass_cmd = ast.Pass()
-            func_body = tree.body[0].body
-            pass_cmd.lineno = func_body[-1].lineno + 1  # Next of the last line
-            pass_cmd.col_offset = func_body[first_command_index].col_offset
-            func_body.insert(len(func_body), pass_cmd)
 
             # Fix missing line numbers and column offsets before compiling
             for node in ast.walk(tree):

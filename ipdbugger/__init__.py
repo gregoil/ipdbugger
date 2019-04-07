@@ -107,7 +107,7 @@ def start_debugging():
 class ErrorsCatchTransformer(ast.NodeTransformer):
     """Surround each statement with a try/except block to catch errors."""
 
-    def __init__(self, ignore_exceptions=(), catch_exception=None):
+    def __init__(self, ignore_exceptions=(), catch_exception=None, depth=0):
         if sys.version_info > (3, 0):  # pragma: no cover
             start_debug_cmd = ast.Expr(
                 value=ast.Call(
@@ -121,6 +121,9 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
             start_debug_cmd = ast.Expr(
                 value=ast.Call(ast.Name("start_debugging", ast.Load()),
                                [], [], None, None))
+
+        self.catch_exception = catch_exception
+        self.depth = depth
 
         catch_exception_node = None
         if catch_exception is not None:
@@ -167,6 +170,29 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
         # Revert changes from ignore list
         self.exception_handlers = old_exception_handlers
 
+    def visit_Call(self, node):
+        # Do nothing if depth is less or equal to zero.
+        if self.depth <= 0:
+            return node
+
+        # TODO: don't know what to do if we have except with no specific execption type
+        ignore_exception_types = [exception_handler.type for exception_handler
+                                  in self.exception_handlers[:-1]]
+        catch_exception_type = self.catch_exception.__name__ \
+            if self.catch_exception else "None"
+
+        catch_exception = ast.Name(catch_exception_type, ast.Load())
+        ignore_exceptions = ast.List(ignore_exception_types, ast.Load())
+        depth = ast.Num(self.depth - 1)
+
+        debug_node_name = ast.Name("debug", ast.Load())
+        node.func = ast.Call(debug_node_name,
+                             [node.func, ignore_exceptions,
+                              catch_exception, depth],
+                             [], None, None)
+
+        return node
+
     def generic_visit(self, node):
         """Surround node statement with a try/except block to catch errors.
 
@@ -207,7 +233,7 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
         return super(ErrorsCatchTransformer, self).generic_visit(node)
 
 
-def debug(victim, ignore_exceptions=(), catch_exception=None):
+def debug(victim, ignore_exceptions=(), catch_exception=None, depth=0):
     """A decorator function to catch exceptions and enter debug mode.
 
     Args:
@@ -230,7 +256,8 @@ def debug(victim, ignore_exceptions=(), catch_exception=None):
 
         _transformer = ErrorsCatchTransformer(
             ignore_exceptions=ignore_exceptions,
-            catch_exception=catch_exception)
+            catch_exception=catch_exception,
+            depth=depth)
 
         try:
             # Try to get the source code of the wrapped object.

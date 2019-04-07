@@ -175,7 +175,8 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
         if self.depth <= 0:
             return node
 
-        # TODO: don't know what to do if we have except with no specific execption type
+        # TODO: don't know what to do if we have except with no specific
+        # execption type
         ignore_exception_types = [exception_handler.type for exception_handler
                                   in self.exception_handlers[:-1]]
         catch_exception_type = self.catch_exception.__name__ \

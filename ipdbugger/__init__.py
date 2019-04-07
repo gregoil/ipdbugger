@@ -345,6 +345,7 @@ def debug(victim, ignore_exceptions=(), catch_exception=None, depth=0):
 
             # Replace original function ("victim") with the wrapping function
             tree.body[0] = wrapping_function
+
             # Create a new runnable code object to replace the original code
             code = compile(tree, victim.__code__.co_filename, 'exec')
             victim.__code__ = code.co_consts[0].co_consts[1]
@@ -367,8 +368,3 @@ def debug(victim, ignore_exceptions=(), catch_exception=None, depth=0):
                         debug(member, ignore_exceptions, catch_exception))
 
         return victim
-
-    else:
-        raise TypeError(
-            "Debugger can only wrap functions and classes. "
-            "Got object {!r} of type {}".format(victim, type(victim).__name__))

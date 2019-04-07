@@ -170,11 +170,13 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
         # Revert changes from ignore list
         self.exception_handlers = old_exception_handlers
 
+    # pylint: disable=invalid-name
     def visit_Call(self, node):
         # Do nothing if depth is less or equal to zero.
         if self.depth <= 0:
             return node
 
+        # pylint: disable=fixme
         # TODO: don't know what to do if we have except with no specific
         # execption type
         ignore_exception_types = [exception_handler.type for exception_handler

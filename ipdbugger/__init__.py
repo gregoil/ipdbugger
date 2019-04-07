@@ -173,12 +173,12 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
     # pylint: disable=invalid-name
     def visit_Call(self, node):
         # Do nothing if depth is less or equal to zero.
-        if self.depth <= 0:
+        if self.depth == 0:
             return node
 
         # pylint: disable=fixme
         # TODO: don't know what to do if we have except with no specific
-        # execption type
+        # TODO: exception type
         ignore_exception_types = [exception_handler.type for exception_handler
                                   in self.exception_handlers[:-1]]
         catch_exception_type = self.catch_exception.__name__ \
@@ -186,7 +186,7 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
 
         catch_exception = ast.Name(catch_exception_type, ast.Load())
         ignore_exceptions = ast.List(ignore_exception_types, ast.Load())
-        depth = ast.Num(self.depth - 1)
+        depth = ast.Num(self.depth - 1 if self.depth > 0 else -1)
 
         debug_node_name = ast.Name("debug", ast.Load())
         node.func = ast.Call(debug_node_name,
@@ -287,7 +287,8 @@ def debug(victim, ignore_exceptions=(), catch_exception=None, depth=0):
             tree = _transformer.visit(old_code_tree)
 
             import_debug_cmd = ast.ImportFrom(
-                __name__, [ast.alias("start_debugging", None)], 0)
+                __name__, [ast.alias("start_debugging", None),
+                           ast.alias("debug", None)], 0)
 
             # Add import to the debugger as first command
             tree.body[0].body.insert(0, import_debug_cmd)
@@ -344,7 +345,6 @@ def debug(victim, ignore_exceptions=(), catch_exception=None, depth=0):
 
             # Replace original function ("victim") with the wrapping function
             tree.body[0] = wrapping_function
-
             # Create a new runnable code object to replace the original code
             code = compile(tree, victim.__code__.co_filename, 'exec')
             victim.__code__ = code.co_consts[0].co_consts[1]

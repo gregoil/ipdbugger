@@ -353,8 +353,11 @@ def debug(victim, ignore_exceptions=(), catch_exception=None, depth=0):
             # Set a flag to indicate that the method was wrapped
             victim._ipdebug_wrapped = True
 
+            return victim
+
     elif inspect.ismethod(victim):
         debug(victim.__func__, ignore_exceptions, catch_exception)
+        return victim
 
     elif isinstance(victim, type):
         # Wrap each method of the class with the debugger
@@ -364,4 +367,9 @@ def debug(victim, ignore_exceptions=(), catch_exception=None, depth=0):
                 setattr(victim, name,
                         debug(member, ignore_exceptions, catch_exception))
 
-    return victim
+        return victim
+
+    else:
+        raise TypeError(
+            "Debugger can only wrap functions and classes. "
+            "Got object {!r} of type {}".format(victim, type(victim).__name__))

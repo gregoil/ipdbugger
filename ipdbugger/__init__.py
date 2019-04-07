@@ -183,7 +183,8 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
             if isinstance(field, list):
                 for value in field:
                     if isinstance(value, ast.AST):
-                        max_lineno = max(max_lineno, self._get_last_lineno(value))
+                        max_lineno = max(max_lineno,
+                                         self._get_last_lineno(value))
 
             elif isinstance(field, ast.AST):
                 max_lineno = max(max_lineno, self._get_last_lineno(field))
@@ -219,7 +220,9 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
                 return new_node
 
             start_debug_handler = self.create_start_debug_handler()
-            start_debug_handler.body[1].lineno = self._get_last_lineno(node) + 1
+            start_debug_handler.body[1].lineno = \
+                self._get_last_lineno(node) + 1
+
             new_node.handlers.append(start_debug_handler)
 
             # Set new node location as old node

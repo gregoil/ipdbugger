@@ -26,7 +26,6 @@ import types
 import inspect
 import functools
 import traceback
-from itertools import chain
 
 import colorama
 from termcolor import colored
@@ -108,70 +107,91 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
     """Surround each statement with a try/except block to catch errors."""
 
     def __init__(self, ignore_exceptions=(), catch_exception=None):
+        """doccccccccccccccccccccccccccccccccc"""
+        self.catch_exception = None
+        self.ignore_exceptions = None
 
-        self.catch_exception = catch_exception
-        self.exception_handlers = []
+        if ignore_exceptions is not None:
+            self.ignore_exceptions = [exception_class.__name__
+                                      for exception_class in ignore_exceptions]
 
-        for exception_class in ignore_exceptions:
-            ignore_exception_node = ast.Name(exception_class.__name__,
-                                             ast.Load())
+        if catch_exception is not None:
+            self.catch_exception = catch_exception.__name__
 
-            self.exception_handlers.insert(
-                0,
-                ast.ExceptHandler(type=ignore_exception_node,
-                                  name=None,
-                                  body=[ast.Raise()]))
+    @property
+    def ast_try_except(self):
+        is_python_3 = sys.version_info > (3, 0)
+        return ast.Try if is_python_3 else ast.TryExcept
 
-    def create_start_debug_handler(self):
-        if sys.version_info > (3, 0):  # pragma: no cover
-            start_debug_cmd = ast.Expr(
-                value=ast.Call(
-                    ast.Name("start_debugging", ast.Load()),
-                    [],
-                    [],
-                )
-            )
+    def wrap_with_try(self, node):
+        """doccccccccccccccccccccccccccccccccccccc"""
+        handlers = []
 
-        else:  # pragma: no cover
-            start_debug_cmd = ast.Expr(
-                value=ast.Call(ast.Name("start_debugging", ast.Load()),
-                               [], [], None, None))
+        if self.ignore_exceptions is None:
+            handlers.append(ast.ExceptHandler(type=None,
+                                              name=None,
+                                              body=[ast.Raise()]))
 
-        catch_exception_node = None
-        if self.catch_exception is not None:
-            catch_exception_node = ast.Name(self.catch_exception.__name__,
-                                            ast.Load())
+        else:
+            ignores_nodes = [ast.Name(exception_class, ast.Load())
+                             for exception_class in self.ignore_exceptions]
 
-        return ast.ExceptHandler(type=catch_exception_node,
-                                 name=None,
-                                 body=[start_debug_cmd,
-                                       ast.Pass()])
+            handlers.append(ast.ExceptHandler(type=ast.Tuple(ignores_nodes, ast.Load()),
+                                              name=None,
+                                              body=[ast.Raise()]))
+
+            if self.catch_exception not in self.ignore_exceptions:
+                start_debug_cmd = ast.Expr(
+                    value=ast.Call(ast.Name("start_debugging", ast.Load()),
+                                   [], [], None, None))
+
+                catch_exception_type = None
+                if self.catch_exception is not None:
+                    catch_exception_type = ast.Name(self.catch_exception,
+                                                    ast.Load())
+
+                ast_pass = ast.Pass()
+                # if node.col_offset > 4:
+                #ast_pass.lineno = self._get_last_lineno(node) + 1
+
+                handlers.append(ast.ExceptHandler(type=catch_exception_type,
+                                                  name=None,
+                                                  body=[start_debug_cmd,
+                                                        ast_pass]))
+
+        is_python_3 = sys.version_info > (3, 0)
+        try_except_extra_params = {"finalbody": []} if is_python_3 else {}
+
+        new_node = self.ast_try_except(orelse=[], body=[node],
+                                       handlers=handlers,
+                                       **try_except_extra_params)
+
+        return ast.copy_location(new_node, node)
 
     def try_except_handler(self, node):
         """Handler for try except statement to ignore excepted exceptions."""
-        # List all excepted handlers
-        excepted = [ast.ExceptHandler(type=handler.type,
-                                      name=None,
-                                      body=[ast.Raise()])
-                    for handler in node.handlers]
+        # List all excepted exception's names
+        # TODO: Handle also when type is list
+        excepted_types = [handler.type.id if handler.type is not None else None
+                          for handler in node.handlers]
 
-        new_exception_handlers = []
-        for except_handler in chain(excepted, self.exception_handlers):
-            new_exception_handlers.append(except_handler)
+        new_exception_list = self.ignore_exceptions
 
-            # Default 'except:' must be last
-            if except_handler.type is None:
-                break
+        if self.ignore_exceptions is not None:
+            if None in excepted_types:
+                new_exception_list = None
+            else:
+                new_exception_list = list(set(excepted_types + self.ignore_exceptions))
 
         # Set the new ignore list, and save the old one
-        old_exception_handlers, self.exception_handlers = \
-            self.exception_handlers, new_exception_handlers
+        old_exception_handlers, self.ignore_exceptions = \
+            self.ignore_exceptions, new_exception_list
 
         # Run recursively on all sub nodes with the new ignore list
         node.body = [self.visit(node_item) for node_item in node.body]
 
         # Revert changes from ignore list
-        self.exception_handlers = old_exception_handlers
+        self.ignore_exceptions = old_exception_handlers
 
     def _get_last_lineno(self, node):
         max_lineno = 0
@@ -203,30 +223,12 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
         if (isinstance(node, ast.stmt) and
                 not isinstance(node, ast.FunctionDef)):
 
-            is_python_3 = sys.version_info > (3, 0)
-            ast_try_except = ast.Try if is_python_3 else ast.TryExcept
-            try_except_extra_params = {"finalbody": []} if is_python_3 else {}
-
-            new_node = ast_try_except(
-                orelse=[],
-                body=[node],
-                handlers=self.exception_handlers[:],
-                **try_except_extra_params)
+            new_node = self.wrap_with_try(node)
 
             # handling try except statement
-            if isinstance(node, ast_try_except):
+            if isinstance(node, self.ast_try_except):
                 self.try_except_handler(node)
-                ast.copy_location(new_node, node)
                 return new_node
-
-            start_debug_handler = self.create_start_debug_handler()
-            start_debug_handler.body[1].lineno = \
-                self._get_last_lineno(node) + 1
-
-            new_node.handlers.append(start_debug_handler)
-
-            # Set new node location as old node
-            ast.copy_location(new_node, node)
 
             # Run recursively on all sub nodes
             super(ErrorsCatchTransformer, self).generic_visit(node)

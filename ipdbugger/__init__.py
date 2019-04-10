@@ -136,7 +136,8 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
             ignores_nodes = [ast.Name(exception_class, ast.Load())
                              for exception_class in self.ignore_exceptions]
 
-            handlers.append(ast.ExceptHandler(type=ast.Tuple(ignores_nodes, ast.Load()),
+            handlers.append(ast.ExceptHandler(type=ast.Tuple(ignores_nodes,
+                                                             ast.Load()),
                                               name=None,
                                               body=[ast.Raise()]))
 
@@ -150,14 +151,10 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
                     catch_exception_type = ast.Name(self.catch_exception,
                                                     ast.Load())
 
-                ast_pass = ast.Pass()
-                # if node.col_offset > 4:
-                #ast_pass.lineno = self._get_last_lineno(node) + 1
 
                 handlers.append(ast.ExceptHandler(type=catch_exception_type,
                                                   name=None,
-                                                  body=[start_debug_cmd,
-                                                        ast_pass]))
+                                                  body=[start_debug_cmd]))
 
         is_python_3 = sys.version_info > (3, 0)
         try_except_extra_params = {"finalbody": []} if is_python_3 else {}
@@ -171,17 +168,27 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
     def try_except_handler(self, node):
         """Handler for try except statement to ignore excepted exceptions."""
         # List all excepted exception's names
-        # TODO: Handle also when type is list
-        excepted_types = [handler.type.id if handler.type is not None else None
-                          for handler in node.handlers]
+        excepted_types = []
+        for handler in node.handlers:
+            if handler.type is None:
+                excepted_types = None
+                break
+
+            if isinstance(handler.type, ast.Tuple):
+                excepted_types.extends([exception_type.id for exception_type
+                                        in handler.type.elts])
+
+            else:
+                excepted_types.append(handler.type.id)
 
         new_exception_list = self.ignore_exceptions
 
         if self.ignore_exceptions is not None:
-            if None in excepted_types:
+            if excepted_types is None:
                 new_exception_list = None
             else:
-                new_exception_list = list(set(excepted_types + self.ignore_exceptions))
+                new_exception_list = list(set(excepted_types +
+                                              self.ignore_exceptions))
 
         # Set the new ignore list, and save the old one
         old_exception_handlers, self.ignore_exceptions = \
@@ -192,24 +199,6 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
 
         # Revert changes from ignore list
         self.ignore_exceptions = old_exception_handlers
-
-    def _get_last_lineno(self, node):
-        max_lineno = 0
-
-        if hasattr(node, "lineno"):
-            max_lineno = node.lineno
-
-        for _, field in ast.iter_fields(node):
-            if isinstance(field, list):
-                for value in field:
-                    if isinstance(value, ast.AST):
-                        max_lineno = max(max_lineno,
-                                         self._get_last_lineno(value))
-
-            elif isinstance(field, ast.AST):
-                max_lineno = max(max_lineno, self._get_last_lineno(field))
-
-        return max_lineno
 
     def generic_visit(self, node):
         """Surround node statement with a try/except block to catch errors.
@@ -237,6 +226,25 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
 
         # Run recursively on all sub nodes
         return super(ErrorsCatchTransformer, self).generic_visit(node)
+
+
+def get_last_lineno(node):
+    """Recursively find the last line number of the ast node."""
+    max_lineno = 0
+
+    if hasattr(node, "lineno"):
+        max_lineno = node.lineno
+
+    for _, field in ast.iter_fields(node):
+        if isinstance(field, list):
+            for value in field:
+                if isinstance(value, ast.AST):
+                    max_lineno = max(max_lineno, get_last_lineno(value))
+
+        elif isinstance(field, ast.AST):
+            max_lineno = max(max_lineno, get_last_lineno(field))
+
+    return max_lineno
 
 
 def debug(victim, ignore_exceptions=(), catch_exception=None):
@@ -312,10 +320,12 @@ def debug(victim, ignore_exceptions=(), catch_exception=None):
             # Delete the debugger decorator of the function
             del tree.body[0].decorator_list[:]
 
-            # Index of the function (first original command in it)
-            first_command_index = 1 + len(ignore_exceptions)
-            if catch_exception is not None:
-                first_command_index += 1
+            # Add pass at the end (to enable debugging the last command)
+            pass_cmd = ast.Pass()
+            func_body = tree.body[0].body
+            pass_cmd.lineno = get_last_lineno(func_body[-1]) + 1
+            pass_cmd.col_offset = func_body[-1].col_offset
+            func_body.append(pass_cmd)
 
             # Fix missing line numbers and column offsets before compiling
             for node in ast.walk(tree):

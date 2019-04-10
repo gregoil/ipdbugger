@@ -106,8 +106,8 @@ def start_debugging():
 class ErrorsCatchTransformer(ast.NodeTransformer):
     """Surround each statement with a try/except block to catch errors."""
 
-    def __init__(self, ignore_exceptions=(), catch_exception=None):
-        """doccccccccccccccccccccccccccccccccc"""
+    def __init__(self, ignore_exceptions=(), catch_exception=None, depth=0):
+        self.depth = depth
         self.catch_exception = None
         self.ignore_exceptions = None
 
@@ -124,7 +124,7 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
         return ast.Try if is_python_3 else ast.TryExcept
 
     def wrap_with_try(self, node):
-        """doccccccccccccccccccccccccccccccccccccc"""
+        """Wrap an ast node in a 'try' node to enter debug on exception."""
         handlers = []
 
         if self.ignore_exceptions is None:
@@ -200,6 +200,33 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
         # Revert changes from ignore list
         self.ignore_exceptions = old_exception_handlers
 
+    def visit_Call(self, node):
+        # Do nothing if depth is less or equal to zero.
+        if self.depth == 0:
+            return node
+
+        if self.ignore_exceptions is None:
+            ignore_exceptions = ast.Name("None", ast.Load())
+        # TODO: Check saving ast instead of string
+        else:
+            exception_names = [ast.Name(exception, ast.Load())
+                               for exception in self.ignore_exceptions]
+            ignore_exceptions = ast.List(exception_names, ast.Load())
+
+        catch_exception_type = self.catch_exception if self.catch_exception \
+            else "None"
+
+        catch_exception = ast.Name(catch_exception_type, ast.Load())
+        depth = ast.Num(self.depth - 1 if self.depth > 0 else -1)
+
+        debug_node_name = ast.Name("debug", ast.Load())
+        node.func = ast.Call(debug_node_name,
+                             [node.func, ignore_exceptions,
+                              catch_exception, depth],
+                             [], None, None)
+
+        return node
+
     def generic_visit(self, node):
         """Surround node statement with a try/except block to catch errors.
 
@@ -247,7 +274,7 @@ def get_last_lineno(node):
     return max_lineno
 
 
-def debug(victim, ignore_exceptions=(), catch_exception=None):
+def debug(victim, ignore_exceptions=(), catch_exception=None, depth=0):
     """A decorator function to catch exceptions and enter debug mode.
 
     Args:
@@ -270,7 +297,8 @@ def debug(victim, ignore_exceptions=(), catch_exception=None):
 
         _transformer = ErrorsCatchTransformer(
             ignore_exceptions=ignore_exceptions,
-            catch_exception=catch_exception)
+            catch_exception=catch_exception,
+            depth=depth)
 
         try:
             # Try to get the source code of the wrapped object.
@@ -281,11 +309,7 @@ def debug(victim, ignore_exceptions=(), catch_exception=None):
         except IOError:
             # Worst-case scenario we can only catch errors at a granularity
             # of the whole function
-            @functools.wraps(victim)
-            def wrapper(*args, **kw):
-                return victim(*args, **kw)
-
-            return wrapper
+            return victim
 
         else:
             # If we have access to the source, we can silence errors on a
@@ -297,7 +321,8 @@ def debug(victim, ignore_exceptions=(), catch_exception=None):
             tree = _transformer.visit(old_code_tree)
 
             import_debug_cmd = ast.ImportFrom(
-                __name__, [ast.alias("start_debugging", None)], 0)
+                __name__, [ast.alias("start_debugging", None),
+                           ast.alias("debug", None)], 0)
 
             # Add import to the debugger as first command
             tree.body[0].body.insert(0, import_debug_cmd)

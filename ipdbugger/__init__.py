@@ -24,7 +24,6 @@ import ast
 import sys
 import types
 import inspect
-import functools
 import traceback
 
 import colorama
@@ -150,7 +149,6 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
                 if self.catch_exception is not None:
                     catch_exception_type = ast.Name(self.catch_exception,
                                                     ast.Load())
-
 
                 handlers.append(ast.ExceptHandler(type=catch_exception_type,
                                                   name=None,
@@ -283,6 +281,7 @@ def debug(victim, ignore_exceptions=(), catch_exception=None, depth=0):
         ignore_exceptions (list): list of classes of exceptions not to catch.
         catch_exception (type): class of exception to catch and debug.
             default is None, meaning catch all exceptions.
+        depth (number): how many levels of inner function calls to propagate.
 
     Returns:
         object. wrapped class or function.

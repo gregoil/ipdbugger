@@ -7,10 +7,10 @@ from IPython.utils.capture import capture_output
 from ipdbugger import debug
 
 try:
-    from unittest.mock import patch
+    from unittest.mock import patch, MagicMock
 
 except ImportError:
-    from mock import patch
+    from mock import patch, MagicMock
 
 
 def test_debugging_raising_function():
@@ -213,7 +213,7 @@ def test_wrapping_twice_with_try_except_statement():
 
 
 def test_wrapping_function_with_closure():
-    """Test wrapping function with closure"""
+    """Test wrapping a function with closure."""
     raise_exc = True
 
     @debug
@@ -224,3 +224,78 @@ def test_wrapping_function_with_closure():
     with capture_output(), patch('bdb.Bdb.set_trace') as set_trace:
         func()
         assert set_trace.called_once
+
+
+class SaveFuncName(object):
+    """Auxiliary class that saves the context's function name."""
+    def __init__(self):
+        self.func_name = None
+
+    def __call__(self, test_frame):
+        self.func_name = test_frame.f_code.co_name
+
+
+def test_no_depth():
+    """Test wrapping a function without propagating to lower calls."""
+    def func_lowest():
+        raise ValueError()
+        pass
+
+    def func_middle():
+        func_lowest()
+        pass
+
+    def func_upper():
+        func_middle()
+        pass
+
+    func_upper = debug(func_upper, depth=0)
+
+    with capture_output(), patch('bdb.Bdb.set_trace',
+                                 SaveFuncName()) as name_saver:
+        func_upper()
+        assert name_saver.func_name == "func_upper"
+
+
+def test_depth_one():
+    """Test wrapping a function one more call level."""
+    def func_lowest():
+        raise ValueError()
+        pass
+
+    def func_middle():
+        func_lowest()
+        pass
+
+    def func_upper():
+        func_middle()
+        pass
+
+    func_upper = debug(func_upper, depth=1)
+
+    with capture_output(), patch('bdb.Bdb.set_trace',
+                                 SaveFuncName()) as name_saver:
+        func_upper()
+        assert name_saver.func_name == "func_middle"
+
+
+def test_depth_infinite():
+    """Test wrapping a function infinite call levels."""
+    def func_lowest():
+        raise ValueError()
+        pass
+
+    def func_middle():
+        func_lowest()
+        pass
+
+    def func_upper():
+        func_middle()
+        pass
+
+    func_upper = debug(func_upper, depth=-1)
+
+    with capture_output(), patch('bdb.Bdb.set_trace',
+                                 SaveFuncName()) as name_saver:
+        func_upper()
+        assert name_saver.func_name == "func_lowest"

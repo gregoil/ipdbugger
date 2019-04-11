@@ -143,9 +143,10 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
                                               body=[ast.Raise()]))
 
             if self.catch_exception not in self.ignore_exceptions:
+                call_extra_parameters = [] if IS_PYTHON_3 else [None, None]
                 start_debug_cmd = ast.Expr(
                     value=ast.Call(ast.Name("start_debugging", ast.Load()),
-                                   [], [], None, None))
+                                   [], [], *call_extra_parameters))
 
                 catch_exception_type = None
                 if self.catch_exception is not None:

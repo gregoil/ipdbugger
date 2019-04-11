@@ -225,10 +225,11 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
         depth = ast.Num(self.depth - 1 if self.depth > 0 else -1)
 
         debug_node_name = ast.Name("debug", ast.Load())
+        call_extra_parameters = [] if IS_PYTHON_3 else [None, None]
         node.func = ast.Call(debug_node_name,
                              [node.func, ignore_exceptions,
                               catch_exception, depth],
-                             [], None, None)
+                             [], *call_extra_parameters)
 
         return node
 

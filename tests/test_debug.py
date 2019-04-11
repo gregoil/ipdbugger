@@ -209,7 +209,9 @@ def test_wrapping_twice_with_try_except_statement():
         except KeyError:
             pass
 
-    func()
+    with capture_output(), patch('bdb.Bdb.set_trace') as set_trace:
+        func()
+        assert set_trace.call_count == 0
 
 
 def test_wrapping_function_with_closure():

@@ -16,7 +16,7 @@ Usage notes (while in ipdb):
 """
 from __future__ import print_function
 from __future__ import absolute_import
-# pylint: disable=no-member
+# pylint: disable=no-member,not-callable
 # pylint: disable=protected-access,bare-except
 # pylint: disable=missing-docstring,too-many-locals,too-many-branches
 import re
@@ -33,6 +33,9 @@ from IPython.terminal.debugger import TerminalPdb
 
 # Enable color printing on screen.
 colorama.init()
+
+
+IS_PYTHON_3 = sys.version_info > (3, 0)
 
 
 class IPDBugger(TerminalPdb):
@@ -119,8 +122,7 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
 
     @property
     def ast_try_except(self):
-        is_python_3 = sys.version_info > (3, 0)
-        return ast.Try if is_python_3 else ast.TryExcept
+        return ast.Try if IS_PYTHON_3 else ast.TryExcept
 
     def wrap_with_try(self, node):
         """Wrap an ast node in a 'try' node to enter debug on exception."""
@@ -154,8 +156,7 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
                                                   name=None,
                                                   body=[start_debug_cmd]))
 
-        is_python_3 = sys.version_info > (3, 0)
-        try_except_extra_params = {"finalbody": []} if is_python_3 else {}
+        try_except_extra_params = {"finalbody": []} if IS_PYTHON_3 else {}
 
         new_node = self.ast_try_except(orelse=[], body=[node],
                                        handlers=handlers,
@@ -198,8 +199,13 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
         # Revert changes from ignore list
         self.ignore_exceptions = old_exception_handlers
 
+    # pylint: disable=invalid-name
     def visit_Call(self, node):
-        # Do nothing if depth is less or equal to zero.
+        """Propagate 'debug' wrapper into inner function calls if needed.
+
+        Args:
+            node (ast.AST): node statement to surround.
+        """
         if self.depth == 0:
             return node
 

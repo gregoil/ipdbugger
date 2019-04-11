@@ -211,7 +211,7 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
 
         if self.ignore_exceptions is None:
             ignore_exceptions = ast.Name("None", ast.Load())
-        # TODO: Check saving ast instead of string
+
         else:
             exception_names = [ast.Name(exception, ast.Load())
                                for exception in self.ignore_exceptions]

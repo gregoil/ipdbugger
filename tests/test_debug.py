@@ -301,3 +301,26 @@ def test_depth_infinite():
                                  SaveFuncName()) as name_saver:
         func_upper()
         assert name_saver.func_name == "func_lowest"
+
+
+def test_ignore_all_exceptions():
+    """Test ignoring all exceptions."""
+    def func():
+        raise Exception()
+
+    func = debug(func, ignore_exceptions=None)
+
+    with pytest.raises(Exception):
+        func()
+
+
+def test_using_debug_as_decorator_with_kwargs():
+    """Test using debug function as decorator with kwargs."""
+
+    @debug(catch_exception=ValueError)
+    def func():
+        raise ValueError()
+
+    with capture_output(), patch('bdb.Bdb.set_trace') as set_trace:
+        func()
+        assert set_trace.called

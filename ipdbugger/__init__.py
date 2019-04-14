@@ -280,7 +280,7 @@ def get_last_lineno(node):
     return max_lineno
 
 
-def debug(victim, ignore_exceptions=(), catch_exception=None, depth=0):
+def debug(victim=None, ignore_exceptions=(), catch_exception=None, depth=0):
     """A decorator function to catch exceptions and enter debug mode.
 
     Args:
@@ -297,6 +297,15 @@ def debug(victim, ignore_exceptions=(), catch_exception=None, depth=0):
     Note:
         This wrapper avoids recursion by setting a flag to each wrapped item.
     """
+    if victim is None:
+        # Debug is used as a decorator so we need to return wrap function to
+        # get the real victim
+        def wrapper(real_victim):
+            return debug(real_victim, ignore_exceptions,
+                         catch_exception, depth)
+
+        return wrapper
+
     if inspect.isfunction(victim):
         if hasattr(victim, '_ipdebug_wrapped'):
             # Don't wrap the function more than once
@@ -342,12 +351,13 @@ def debug(victim, ignore_exceptions=(), catch_exception=None, depth=0):
 
                 tree.body[0].body.insert(1, import_exception_cmd)
 
-            for exception_class in ignore_exceptions:
-                import_exception_cmd = ast.ImportFrom(
-                    exception_class.__module__,
-                    [ast.alias(exception_class.__name__, None)], 0)
+            if ignore_exceptions is not None:
+                for exception_class in ignore_exceptions:
+                    import_exception_cmd = ast.ImportFrom(
+                        exception_class.__module__,
+                        [ast.alias(exception_class.__name__, None)], 0)
 
-                tree.body[0].body.insert(1, import_exception_cmd)
+                    tree.body[0].body.insert(1, import_exception_cmd)
 
             # Delete the debugger decorator of the function
             del tree.body[0].decorator_list[:]

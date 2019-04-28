@@ -115,8 +115,8 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
 
         if ignore_exceptions is not None:
             self.ignore_exceptions = [
-                                ast.Name(exception_class.__name__, ast.Load())
-                                for exception_class in ignore_exceptions]
+                ast.Name(exception_class.__name__, ast.Load())
+                for exception_class in ignore_exceptions]
 
         if catch_exception is not None:
             self.catch_exception = ast.Name(catch_exception.__name__,

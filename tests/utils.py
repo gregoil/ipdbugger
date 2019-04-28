@@ -2,4 +2,4 @@
 
 
 class TestError(Exception):
-    """Exception class for the tests."""
+    """External exception class for the tests."""

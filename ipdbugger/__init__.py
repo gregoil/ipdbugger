@@ -105,7 +105,7 @@ def start_debugging():
     IPDBugger(exc_info=sys.exc_info()).set_trace(test_frame)
 
 
-def get_value(ast_node):
+def get_node_value(ast_node):
     """Return a comparable object for the ast node."""
     return ast.dump(ast_node)
 
@@ -149,8 +149,8 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
                                               body=[ast.Raise()]))
 
             if self.catch_exception is None or \
-                    get_value(self.catch_exception) not in \
-                    (get_value(ast_node)
+                    get_node_value(self.catch_exception) not in \
+                    (get_node_value(ast_node)
                      for ast_node in self.ignore_exceptions):
 
                 call_extra_parameters = [] if IS_PYTHON_3 else [None, None]

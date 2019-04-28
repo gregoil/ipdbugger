@@ -138,13 +138,41 @@ def test_non_targeted_exceptions():
         func()
 
 
-def test_ignoring_excepted_exceptions():
-    """Test ignoring exceptions that should be excepted."""
+def test_ignoring_excepted_exception():
+    """Test ignoring an exception that's excepted."""
     @debug
     def func():
         try:
             raise ValueError()
         except ValueError:
+            pass
+
+    func()
+
+
+def test_ignoring_excepted_multiple_exception():
+    """Test ignoring exceptions that are excepted."""
+    @debug
+    def func():
+        try:
+            raise ValueError()
+        except (ValueError, KeyError):
+            pass
+
+    func()
+
+
+def test_ignoring_attribute_exception():
+    """Test ignoring an exception that's excepted."""
+    class TestClass():
+        class TestError(Exception):
+            pass
+
+    @debug
+    def func():
+        try:
+            raise TestClass.TestError()
+        except TestClass.TestError:
             pass
 
     func()

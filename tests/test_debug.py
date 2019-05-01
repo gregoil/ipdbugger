@@ -2,7 +2,6 @@
 from __future__ import absolute_import
 
 import pytest
-from IPython.utils.capture import capture_output
 
 from tests import utils
 from ipdbugger import debug
@@ -20,7 +19,8 @@ def test_debugging_raising_function():
     def should_raise():
         raise Exception()
 
-    with capture_output(), patch('bdb.Bdb.set_trace') as set_trace:
+    with patch('IPython.terminal.debugger.TerminalPdb.__init__'), \
+            patch('bdb.Bdb.set_trace') as set_trace:
         should_raise()
         assert set_trace.called
 
@@ -34,7 +34,8 @@ def test_debugging_raising_method():
     a = A()
     a.should_raise = debug(a.should_raise)
 
-    with capture_output(), patch('bdb.Bdb.set_trace') as set_trace:
+    with patch('IPython.terminal.debugger.TerminalPdb.__init__'), \
+            patch('bdb.Bdb.set_trace') as set_trace:
         a.should_raise()
         assert set_trace.called
 
@@ -46,7 +47,8 @@ def test_debugging_function_twice():
     def should_raise():
         raise Exception()
 
-    with capture_output(), patch('bdb.Bdb.set_trace') as set_trace:
+    with patch('IPython.terminal.debugger.TerminalPdb.__init__'), \
+            patch('bdb.Bdb.set_trace') as set_trace:
         should_raise()
         assert set_trace.called_once
 
@@ -57,7 +59,8 @@ def test_debugging_non_raising_function():
     def non_raising_function():
         pass
 
-    with capture_output(), patch('bdb.Bdb.set_trace') as set_trace:
+    with patch('IPython.terminal.debugger.TerminalPdb.__init__'), \
+            patch('bdb.Bdb.set_trace') as set_trace:
         non_raising_function()
         assert not set_trace.called
 
@@ -74,11 +77,13 @@ def test_debugging_class():
 
     debugged_object = DebuggedClass()
 
-    with capture_output(), patch('bdb.Bdb.set_trace') as set_trace:
+    with patch('IPython.terminal.debugger.TerminalPdb.__init__'), \
+            patch('bdb.Bdb.set_trace') as set_trace:
         debugged_object.first_method()
         assert set_trace.called
 
-    with capture_output(), patch('bdb.Bdb.set_trace') as set_trace:
+    with patch('IPython.terminal.debugger.TerminalPdb.__init__'), \
+            patch('bdb.Bdb.set_trace') as set_trace:
         debugged_object.second_method()
         assert set_trace.called
 
@@ -123,7 +128,8 @@ def test_targeting_specific_exception():
 
     func = debug(func, catch_exception=AssertionError)
 
-    with capture_output(), patch('bdb.Bdb.set_trace') as set_trace:
+    with patch('IPython.terminal.debugger.TerminalPdb.__init__'), \
+            patch('bdb.Bdb.set_trace') as set_trace:
         func()
         assert set_trace.called
 
@@ -211,7 +217,8 @@ def test_ignoring_excepted_exceptions_only_on_try_except_scope():
 
     func = debug(func)
 
-    with capture_output(), patch('bdb.Bdb.set_trace') as set_trace:
+    with patch('IPython.terminal.debugger.TerminalPdb.__init__'), \
+            patch('bdb.Bdb.set_trace') as set_trace:
         func()
         assert set_trace.called
 
@@ -225,7 +232,8 @@ def test_wrapping_try_except_statement():
         except ValueError:
             raise
 
-    with capture_output(), patch('bdb.Bdb.set_trace') as set_trace:
+    with patch('IPython.terminal.debugger.TerminalPdb.__init__'), \
+            patch('bdb.Bdb.set_trace') as set_trace:
         func()
         assert set_trace.called_once
 
@@ -258,7 +266,8 @@ def test_wrapping_twice_with_try_except_statement():
         except KeyError:
             pass
 
-    with capture_output(), patch('bdb.Bdb.set_trace') as set_trace:
+    with patch('IPython.terminal.debugger.TerminalPdb.__init__'), \
+            patch('bdb.Bdb.set_trace') as set_trace:
         func()
         assert set_trace.call_count == 0
 
@@ -272,7 +281,8 @@ def test_wrapping_function_with_closure():
         if raise_exc:
             raise ValueError()
 
-    with capture_output(), patch('bdb.Bdb.set_trace') as set_trace:
+    with patch('IPython.terminal.debugger.TerminalPdb.__init__'), \
+            patch('bdb.Bdb.set_trace') as set_trace:
         func()
         assert set_trace.called_once
 
@@ -302,8 +312,8 @@ def test_no_depth():
 
     func_upper = debug(func_upper, depth=0)
 
-    with capture_output(), patch('bdb.Bdb.set_trace',
-                                 SaveFuncName()) as name_saver:
+    with patch('IPython.terminal.debugger.TerminalPdb.__init__'), \
+            patch('bdb.Bdb.set_trace', SaveFuncName()) as name_saver:
         func_upper()
         assert name_saver.func_name == "func_upper"
 
@@ -324,8 +334,8 @@ def test_depth_one():
 
     func_upper = debug(func_upper, depth=1)
 
-    with capture_output(), patch('bdb.Bdb.set_trace',
-                                 SaveFuncName()) as name_saver:
+    with patch('IPython.terminal.debugger.TerminalPdb.__init__'), \
+            patch('bdb.Bdb.set_trace', SaveFuncName()) as name_saver:
         func_upper()
         assert name_saver.func_name == "func_middle"
 
@@ -346,8 +356,8 @@ def test_depth_infinite():
 
     func_upper = debug(func_upper, depth=-1)
 
-    with capture_output(), patch('bdb.Bdb.set_trace',
-                                 SaveFuncName()) as name_saver:
+    with patch('IPython.terminal.debugger.TerminalPdb.__init__'), \
+            patch('bdb.Bdb.set_trace', SaveFuncName()) as name_saver:
         func_upper()
         assert name_saver.func_name == "func_lowest"
 
@@ -385,6 +395,7 @@ def test_using_debug_as_decorator_with_kwargs():
     def func():
         raise ValueError()
 
-    with capture_output(), patch('bdb.Bdb.set_trace') as set_trace:
+    with patch('IPython.terminal.debugger.TerminalPdb.__init__'), \
+            patch('bdb.Bdb.set_trace') as set_trace:
         func()
         assert set_trace.called

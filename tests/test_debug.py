@@ -362,6 +362,21 @@ def test_depth_infinite():
         assert name_saver.func_name == "func_lowest"
 
 
+def test_depth_and_catch_attribute():
+    """Test wrapping a function one more call level."""
+    def func_lower():
+        raise utils.TestError()
+
+    def func_upper():
+        try:
+            func_lower()
+        except (utils.TestError, ValueError):
+            pass
+
+    func_upper = debug(func_upper, depth=1)
+    func_upper()
+
+
 def test_ignore_all_exceptions():
     """Test ignoring all exceptions."""
     def func():

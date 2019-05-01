@@ -25,11 +25,14 @@ import sys
 import types
 import inspect
 import traceback
+from bdb import BdbQuit
 
 import colorama
 from termcolor import colored
 from future.utils import raise_
 from IPython.terminal.debugger import TerminalPdb
+
+from .signals import register_break_signal
 
 # Enable color printing on screen.
 colorama.init()
@@ -287,7 +290,8 @@ def get_last_lineno(node):
     return max_lineno
 
 
-def debug(victim=None, ignore_exceptions=(), catch_exception=None, depth=0):
+def debug(victim=None, ignore_exceptions=(BdbQuit,),
+          catch_exception=None, depth=0):
     """A decorator function to catch exceptions and enter debug mode.
 
     Args:
@@ -313,6 +317,7 @@ def debug(victim=None, ignore_exceptions=(), catch_exception=None, depth=0):
 
         return wrapper
 
+    register_break_signal()
     if inspect.isfunction(victim):
         if hasattr(victim, '_ipdebug_wrapped'):
             # Don't wrap the function more than once

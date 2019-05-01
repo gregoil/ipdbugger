@@ -1,4 +1,5 @@
 """Signals usage in Rotest."""
+# pylint: disable=global-statement,no-member
 import sys
 import signal
 

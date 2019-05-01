@@ -290,7 +290,8 @@ def get_last_lineno(node):
     return max_lineno
 
 
-def debug(victim=None, ignore_exceptions=(BdbQuit,), catch_exception=None, depth=0):
+def debug(victim=None, ignore_exceptions=(BdbQuit,),
+          catch_exception=None, depth=0):
     """A decorator function to catch exceptions and enter debug mode.
 
     Args:

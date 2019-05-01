@@ -105,6 +105,11 @@ def start_debugging():
     IPDBugger(exc_info=sys.exc_info()).set_trace(test_frame)
 
 
+def get_node_value(ast_node):
+    """Return a comparable object for the ast node."""
+    return ast.dump(ast_node)
+
+
 class ErrorsCatchTransformer(ast.NodeTransformer):
     """Surround each statement with a try/except block to catch errors."""
 
@@ -114,11 +119,13 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
         self.ignore_exceptions = None
 
         if ignore_exceptions is not None:
-            self.ignore_exceptions = [exception_class.__name__
-                                      for exception_class in ignore_exceptions]
+            self.ignore_exceptions = [
+                ast.Name(exception_class.__name__, ast.Load())
+                for exception_class in ignore_exceptions]
 
         if catch_exception is not None:
-            self.catch_exception = catch_exception.__name__
+            self.catch_exception = ast.Name(catch_exception.__name__,
+                                            ast.Load())
 
     @property
     def ast_try_except(self):
@@ -134,15 +141,18 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
                                               body=[ast.Raise()]))
 
         else:
-            ignores_nodes = [ast.Name(exception_class, ast.Load())
-                             for exception_class in self.ignore_exceptions]
+            ignores_nodes = self.ignore_exceptions
 
             handlers.append(ast.ExceptHandler(type=ast.Tuple(ignores_nodes,
                                                              ast.Load()),
                                               name=None,
                                               body=[ast.Raise()]))
 
-            if self.catch_exception not in self.ignore_exceptions:
+            if self.catch_exception is None or \
+                    get_node_value(self.catch_exception) not in \
+                    (get_node_value(ast_node)
+                     for ast_node in self.ignore_exceptions):
+
                 call_extra_parameters = [] if IS_PYTHON_3 else [None, None]
                 start_debug_cmd = ast.Expr(
                     value=ast.Call(ast.Name("start_debugging", ast.Load()),
@@ -150,8 +160,7 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
 
                 catch_exception_type = None
                 if self.catch_exception is not None:
-                    catch_exception_type = ast.Name(self.catch_exception,
-                                                    ast.Load())
+                    catch_exception_type = self.catch_exception
 
                 handlers.append(ast.ExceptHandler(type=catch_exception_type,
                                                   name=None,
@@ -175,11 +184,11 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
                 break
 
             if isinstance(handler.type, ast.Tuple):
-                excepted_types.extends([exception_type.id for exception_type
-                                        in handler.type.elts])
+                excepted_types.extend([exception_type for exception_type
+                                       in handler.type.elts])
 
             else:
-                excepted_types.append(handler.type.id)
+                excepted_types.append(handler.type)
 
         new_exception_list = self.ignore_exceptions
 
@@ -214,12 +223,10 @@ class ErrorsCatchTransformer(ast.NodeTransformer):
             ignore_exceptions = ast.Name("None", ast.Load())
 
         else:
-            exception_names = [ast.Name(exception, ast.Load())
-                               for exception in self.ignore_exceptions]
-            ignore_exceptions = ast.List(exception_names, ast.Load())
+            ignore_exceptions = ast.List(self.ignore_exceptions, ast.Load())
 
-        catch_exception_type = self.catch_exception if self.catch_exception \
-            else "None"
+        catch_exception_type = self.catch_exception \
+            if self.catch_exception else "None"
 
         catch_exception = ast.Name(catch_exception_type, ast.Load())
         depth = ast.Num(self.depth - 1 if self.depth > 0 else -1)

@@ -3,6 +3,7 @@ from __future__ import absolute_import
 
 import pytest
 
+from tests import utils
 from ipdbugger import debug
 
 try:
@@ -144,8 +145,8 @@ def test_non_targeted_exceptions():
         func()
 
 
-def test_ignoring_excepted_exceptions():
-    """Test ignoring exceptions that should be excepted."""
+def test_ignoring_excepted_exception():
+    """Test ignoring an exception that's excepted."""
     @debug
     def func():
         try:
@@ -153,6 +154,54 @@ def test_ignoring_excepted_exceptions():
         except ValueError:
             pass
 
+    func()
+
+
+def test_ignoring_excepted_specific_exception():
+    """Test ignoring a specific exception that's excepted."""
+    def func():
+        try:
+            raise ValueError()
+        except ValueError:
+            pass
+
+    debug(func, catch_exception=ValueError)
+    func()
+
+
+def test_ignoring_excepted_multiple_exception():
+    """Test ignoring exceptions that are excepted."""
+    @debug
+    def func():
+        try:
+            raise ValueError()
+        except (ValueError, KeyError):
+            pass
+
+    func()
+
+
+def test_ignoring_attribute_exception():
+    """Test ignoring an exception that's excepted."""
+    @debug
+    def func():
+        try:
+            raise utils.TestError()
+        except utils.TestError:
+            pass
+
+    func()
+
+
+def test_ignoring_excepted_specific_attribute_exception():
+    """Test ignoring a specific exception that's excepted."""
+    def func():
+        try:
+            raise utils.TestError()
+        except utils.TestError:
+            pass
+
+    debug(func, catch_exception=utils.TestError)
     func()
 
 
